@@ -938,8 +938,8 @@ impl UrustJournalApp {
                                                         egui::Label::new(rich)
                                                             .sense(egui::Sense::click()),
                                                     )
-                                                    .on_hover_text("Clic para opciones");
-                                                egui::Popup::menu(&response).show(|ui| {
+                                                    .on_hover_text("Clic derecho para opciones");
+                                                egui::Popup::context_menu(&response).show(|ui| {
                                                     if ui.button("Editar texto").clicked() {
                                                         edit_start =
                                                             Some((index, bullet.text().to_owned()));
