@@ -747,6 +747,7 @@ impl UrustJournalApp {
                 ui.heading(script_heading("UrustJournal"));
                 ui.label(format!("Versión {}", env!("CARGO_PKG_VERSION")));
                 ui.label(env!("CARGO_PKG_DESCRIPTION"));
+                ui.label(format!("© Ulises Lafuente Ramos - 2026"));
                 ui.label(format!("Licencia: {}", env!("CARGO_PKG_LICENSE")));
 
                 let repository = env!("CARGO_PKG_REPOSITORY");
