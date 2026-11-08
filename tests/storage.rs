@@ -2,7 +2,7 @@ use std::fs;
 
 use tempfile::TempDir;
 use urust_journal::JournalError;
-use urust_journal::journal::{Bullet, JournalName, JournalStorage};
+use urust_journal::journal::{Bullet, JournalName, JournalStorage, SectionKind};
 
 fn storage() -> (TempDir, JournalStorage) {
     let temp = tempfile::tempdir().expect("temp dir");
@@ -30,27 +30,60 @@ fn creates_directory_and_journal_file() {
 fn create_does_not_overwrite_existing_journal() {
     let (_temp, storage) = storage();
     let mut journal = storage.create(name("keep")).expect("create journal");
-    journal.push(Bullet::note("contenido importante"));
+    let index = journal.add_page(SectionKind::Journal, "Day").unwrap();
+    journal
+        .page_mut(SectionKind::Journal, index)
+        .unwrap()
+        .push(Bullet::note("contenido importante"));
     storage.save(&journal).expect("save journal");
 
     let error = storage.create(name("keep")).unwrap_err();
     assert!(matches!(error, JournalError::AlreadyExists(_)));
 
     let loaded = storage.load(&name("keep")).expect("load journal");
-    assert_eq!(loaded.bullets(), &[Bullet::note("contenido importante")]);
+    assert_eq!(
+        loaded.page(SectionKind::Journal, index).unwrap().bullets(),
+        &[Bullet::note("contenido importante")]
+    );
 }
 
 #[test]
 fn loads_saved_content() {
     let (_temp, storage) = storage();
     let mut journal = storage.create(name("saved")).expect("create journal");
-    journal.push(Bullet::task("comprar pan"));
-    journal.push(Bullet::event("reunión"));
+    let index = journal.add_page(SectionKind::Journal, "Day").unwrap();
+    let page = journal.page_mut(SectionKind::Journal, index).unwrap();
+    page.push(Bullet::task("comprar pan"));
+    page.push(Bullet::event("reunión"));
     storage.save(&journal).expect("save journal");
 
     let loaded = storage.load(&name("saved")).expect("load journal");
-    assert_eq!(loaded.bullets().len(), 2);
-    assert_eq!(loaded.bullets()[0], Bullet::task("comprar pan"));
+    let page = loaded.page(SectionKind::Journal, index).unwrap();
+    assert_eq!(page.bullets().len(), 2);
+    assert_eq!(page.bullets()[0], Bullet::task("comprar pan"));
+}
+
+#[test]
+fn persists_pages_across_all_sections() {
+    let (_temp, storage) = storage();
+    let mut journal = storage.create(name("pages")).expect("create journal");
+
+    for (kind, title) in [
+        (SectionKind::FutureLog, "2027-01"),
+        (SectionKind::MonthlyLog, "2026-11"),
+        (SectionKind::Journal, "2026-11-08"),
+    ] {
+        let index = journal.add_page(kind, title).unwrap();
+        journal
+            .page_mut(kind, index)
+            .unwrap()
+            .push(Bullet::note(title));
+    }
+    storage.save(&journal).expect("save journal");
+
+    let loaded = storage.load(&name("pages")).expect("load journal");
+    assert_eq!(loaded, journal);
+    assert_eq!(loaded.total_pages(), 3);
 }
 
 #[test]

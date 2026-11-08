@@ -1,25 +1,81 @@
 //! Bullet journal entries and their plain-text representation.
 //!
-//! The on-disk format is line based:
+//! Bullets follow the rapid-logging notation:
 //!
-//! | Kind      | Syntax        |
-//! |-----------|---------------|
-//! | Task      | `- [ ] text`  |
-//! | Done task | `- [x] text`  |
-//! | Migrated  | `- [>] text`  |
-//! | Scheduled | `- [<] text`  |
-//! | Event     | `o text`      |
-//! | Note      | `- text`      |
+//! | Kind      | Marker | Syntax      |
+//! |-----------|--------|-------------|
+//! | Task      | `•`    | `• text`    |
+//! | Completed | `x`    | `x text`    |
+//! | Migrated  | `>`    | `> text`    |
+//! | Scheduled | `<`    | `< text`    |
+//! | Event     | `o`    | `o text`    |
+//! | Note      | `-`    | `- text`    |
+//!
+//! The older Markdown-style checkbox syntax (`- [ ]`, `- [x]`, `- [>]`,
+//! `- [<]`) is still accepted when reading, so existing journals keep working.
 //!
 //! Any line that does not match a known marker is preserved verbatim as
 //! [`Bullet::Raw`], which keeps headings and free-form text intact.
 
+/// The rapid-logging state of a bullet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BulletMarker {
+    /// An open task.
+    Task,
+    /// A finished task.
+    Completed,
+    /// A task moved to a future collection.
+    Migrated,
+    /// A task scheduled for a future date.
+    Scheduled,
+    /// An event that happened.
+    Event,
+    /// A plain note.
+    Note,
+}
+
+impl BulletMarker {
+    /// All markers in display order.
+    pub const ALL: [Self; 6] = [
+        Self::Task,
+        Self::Completed,
+        Self::Migrated,
+        Self::Scheduled,
+        Self::Event,
+        Self::Note,
+    ];
+
+    /// The symbol used in the journal and on disk.
+    pub fn symbol(self) -> &'static str {
+        match self {
+            Self::Task => "•",
+            Self::Completed => "x",
+            Self::Migrated => ">",
+            Self::Scheduled => "<",
+            Self::Event => "o",
+            Self::Note => "-",
+        }
+    }
+
+    /// Human-readable label.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Task => "Tarea",
+            Self::Completed => "Completada",
+            Self::Migrated => "Migrada (>)",
+            Self::Scheduled => "Programada (<)",
+            Self::Event => "Evento",
+            Self::Note => "Nota",
+        }
+    }
+}
+
 /// A single bullet journal entry.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Bullet {
-    /// A task that can be completed.
+    /// A task, either open or completed.
     Task { text: String, completed: bool },
-    /// A task migrated to a future date or collection.
+    /// A task moved to a future collection.
     Migrated(String),
     /// A task scheduled for a future date.
     Scheduled(String),
@@ -34,30 +90,72 @@ pub enum Bullet {
 impl Bullet {
     /// Creates a pending task.
     pub fn task(text: impl Into<String>) -> Self {
-        Self::Task {
-            text: text.into(),
-            completed: false,
-        }
+        Self::with_marker(BulletMarker::Task, text)
     }
 
     /// Creates a plain note.
     pub fn note(text: impl Into<String>) -> Self {
-        Self::Note(text.into())
+        Self::with_marker(BulletMarker::Note, text)
     }
 
     /// Creates an event.
     pub fn event(text: impl Into<String>) -> Self {
-        Self::Event(text.into())
+        Self::with_marker(BulletMarker::Event, text)
     }
 
     /// Creates a migrated task.
     pub fn migrated(text: impl Into<String>) -> Self {
-        Self::Migrated(text.into())
+        Self::with_marker(BulletMarker::Migrated, text)
     }
 
     /// Creates a scheduled task.
     pub fn scheduled(text: impl Into<String>) -> Self {
-        Self::Scheduled(text.into())
+        Self::with_marker(BulletMarker::Scheduled, text)
+    }
+
+    /// Creates a bullet from a marker and text.
+    pub fn with_marker(marker: BulletMarker, text: impl Into<String>) -> Self {
+        let text = text.into();
+        match marker {
+            BulletMarker::Task => Self::Task {
+                text,
+                completed: false,
+            },
+            BulletMarker::Completed => Self::Task {
+                text,
+                completed: true,
+            },
+            BulletMarker::Migrated => Self::Migrated(text),
+            BulletMarker::Scheduled => Self::Scheduled(text),
+            BulletMarker::Event => Self::Event(text),
+            BulletMarker::Note => Self::Note(text),
+        }
+    }
+
+    /// Returns the marker for this bullet, or `None` for raw lines.
+    pub fn marker(&self) -> Option<BulletMarker> {
+        match self {
+            Self::Task {
+                completed: false, ..
+            } => Some(BulletMarker::Task),
+            Self::Task {
+                completed: true, ..
+            } => Some(BulletMarker::Completed),
+            Self::Migrated(_) => Some(BulletMarker::Migrated),
+            Self::Scheduled(_) => Some(BulletMarker::Scheduled),
+            Self::Event(_) => Some(BulletMarker::Event),
+            Self::Note(_) => Some(BulletMarker::Note),
+            Self::Raw(_) => None,
+        }
+    }
+
+    /// Changes the marker while preserving the text. Raw lines are unchanged.
+    pub fn set_marker(&mut self, marker: BulletMarker) {
+        if matches!(self, Self::Raw(_)) {
+            return;
+        }
+        let text = self.text().to_owned();
+        *self = Self::with_marker(marker, text);
     }
 
     /// Returns the text carried by the bullet.
@@ -82,28 +180,37 @@ impl Bullet {
     /// Parses a single line of a journal file.
     pub fn parse(line: &str) -> Self {
         if let Some(text) = strip_marker(line, "- [ ]") {
-            return Self::Task {
-                text: text.to_owned(),
-                completed: false,
-            };
+            return Self::with_marker(BulletMarker::Task, text);
         }
         if let Some(text) = strip_marker(line, "- [x]").or_else(|| strip_marker(line, "- [X]")) {
-            return Self::Task {
-                text: text.to_owned(),
-                completed: true,
-            };
+            return Self::with_marker(BulletMarker::Completed, text);
         }
         if let Some(text) = strip_marker(line, "- [>]") {
-            return Self::Migrated(text.to_owned());
+            return Self::with_marker(BulletMarker::Migrated, text);
         }
         if let Some(text) = strip_marker(line, "- [<]") {
-            return Self::Scheduled(text.to_owned());
+            return Self::with_marker(BulletMarker::Scheduled, text);
+        }
+        if let Some(text) = strip_marker(line, "•").or_else(|| strip_marker(line, "·")) {
+            return Self::with_marker(BulletMarker::Task, text);
+        }
+        if let Some(text) = strip_marker(line, "x")
+            .or_else(|| strip_marker(line, "X"))
+            .or_else(|| strip_marker(line, "×"))
+        {
+            return Self::with_marker(BulletMarker::Completed, text);
+        }
+        if let Some(text) = strip_marker(line, ">") {
+            return Self::with_marker(BulletMarker::Migrated, text);
+        }
+        if let Some(text) = strip_marker(line, "<") {
+            return Self::with_marker(BulletMarker::Scheduled, text);
         }
         if let Some(text) = strip_marker(line, "o") {
-            return Self::Event(text.to_owned());
+            return Self::with_marker(BulletMarker::Event, text);
         }
         if let Some(text) = strip_marker(line, "-") {
-            return Self::Note(text.to_owned());
+            return Self::with_marker(BulletMarker::Note, text);
         }
         Self::Raw(line.to_owned())
     }
@@ -114,13 +221,13 @@ impl Bullet {
             Self::Task {
                 text,
                 completed: true,
-            } => format!("- [x] {text}"),
+            } => format!("x {text}"),
             Self::Task {
                 text,
                 completed: false,
-            } => format!("- [ ] {text}"),
-            Self::Migrated(text) => format!("- [>] {text}"),
-            Self::Scheduled(text) => format!("- [<] {text}"),
+            } => format!("• {text}"),
+            Self::Migrated(text) => format!("> {text}"),
+            Self::Scheduled(text) => format!("< {text}"),
             Self::Event(text) => format!("o {text}"),
             Self::Note(text) => format!("- {text}"),
             Self::Raw(text) => text.clone(),

@@ -12,6 +12,10 @@ pub enum JournalError {
     AlreadyExists(String),
     /// The requested journal does not exist.
     NotFound(String),
+    /// A page title does not satisfy the validation rules.
+    InvalidPage(String),
+    /// A page with the same title already exists in the section.
+    DuplicatePage(String),
     /// An underlying filesystem operation failed.
     Io(io::Error),
 }
@@ -22,6 +26,10 @@ impl fmt::Display for JournalError {
             Self::InvalidName(reason) => write!(f, "Nombre de journal inválido: {reason}"),
             Self::AlreadyExists(name) => write!(f, "Ya existe un journal llamado '{name}'"),
             Self::NotFound(name) => write!(f, "No se encontró el journal '{name}'"),
+            Self::InvalidPage(reason) => write!(f, "Página inválida: {reason}"),
+            Self::DuplicatePage(title) => {
+                write!(f, "Ya existe una página llamada '{title}' en esta sección")
+            }
             Self::Io(error) => write!(f, "Error de entrada/salida: {error}"),
         }
     }

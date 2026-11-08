@@ -1,22 +1,15 @@
-use urust_journal::journal::{Bullet, Journal, JournalName};
-
-fn name(raw: &str) -> JournalName {
-    JournalName::new(raw).expect("valid name")
-}
+use urust_journal::journal::{Bullet, BulletMarker};
 
 #[test]
 fn parses_every_bullet_kind() {
     let cases = [
-        ("- [ ] pending", Bullet::task("pending")),
-        (
-            "- [x] done",
-            Bullet::Task {
-                text: "done".to_owned(),
-                completed: true,
-            },
-        ),
-        ("- [>] later", Bullet::migrated("later")),
-        ("- [<] someday", Bullet::scheduled("someday")),
+        ("• pending", Bullet::task("pending")),
+        ("· pending", Bullet::task("pending")),
+        ("x done", completed("done")),
+        ("X done", completed("done")),
+        ("× done", completed("done")),
+        ("> later", Bullet::migrated("later")),
+        ("< someday", Bullet::scheduled("someday")),
         ("o meeting", Bullet::event("meeting")),
         ("- a note", Bullet::note("a note")),
         ("# Heading", Bullet::Raw("# Heading".to_owned())),
@@ -29,13 +22,24 @@ fn parses_every_bullet_kind() {
 }
 
 #[test]
+fn parses_legacy_checkbox_syntax() {
+    let cases = [
+        ("- [ ] pending", Bullet::task("pending")),
+        ("- [x] done", completed("done")),
+        ("- [>] later", Bullet::migrated("later")),
+        ("- [<] someday", Bullet::scheduled("someday")),
+    ];
+
+    for (line, expected) in cases {
+        assert_eq!(Bullet::parse(line), expected, "line: {line:?}");
+    }
+}
+
+#[test]
 fn renders_bullets_without_losing_content() {
     let bullets = [
         Bullet::task("pending"),
-        Bullet::Task {
-            text: "done".to_owned(),
-            completed: true,
-        },
+        completed("done"),
         Bullet::migrated("later"),
         Bullet::scheduled("someday"),
         Bullet::event("meeting"),
@@ -44,10 +48,10 @@ fn renders_bullets_without_losing_content() {
     ];
 
     let expected = [
-        "- [ ] pending",
-        "- [x] done",
-        "- [>] later",
-        "- [<] someday",
+        "• pending",
+        "x done",
+        "> later",
+        "< someday",
         "o meeting",
         "- a note",
         "# Heading",
@@ -59,39 +63,42 @@ fn renders_bullets_without_losing_content() {
 }
 
 #[test]
-fn text_round_trips_through_journal() {
-    let source = "- [ ] pending\n- [x] done\no meeting\n- a note\n# Heading\n";
-    let journal = Journal::from_text(name("roundtrip"), source);
-
-    assert_eq!(journal.to_text(), source);
-    assert_eq!(journal.bullets().len(), 5);
+fn markers_require_a_separating_space() {
+    assert_eq!(Bullet::parse("•task"), Bullet::Raw("•task".to_owned()));
+    assert_eq!(Bullet::parse("- [ ]task"), Bullet::note("[ ]task"));
+    assert_eq!(Bullet::parse("other"), Bullet::Raw("other".to_owned()));
 }
 
 #[test]
-fn toggling_tasks_only_affects_tasks() {
-    let mut journal = Journal::new(name("toggle"));
-    journal.push(Bullet::task("pending"));
-    journal.push(Bullet::note("note"));
+fn changing_marker_preserves_text() {
+    let mut bullet = Bullet::task("buy bread");
+    assert_eq!(bullet.marker(), Some(BulletMarker::Task));
 
-    assert!(journal.toggle(0));
-    assert_eq!(
-        journal.bullets()[0],
-        Bullet::Task {
-            text: "pending".to_owned(),
-            completed: true,
-        }
-    );
+    bullet.set_marker(BulletMarker::Migrated);
+    assert_eq!(bullet, Bullet::migrated("buy bread"));
 
-    assert!(journal.toggle(1));
-    assert_eq!(journal.bullets()[1], Bullet::note("note"));
+    bullet.set_marker(BulletMarker::Completed);
+    assert_eq!(bullet, completed("buy bread"));
+
+    bullet.set_marker(BulletMarker::Scheduled);
+    assert_eq!(bullet, Bullet::scheduled("buy bread"));
+
+    bullet.set_marker(BulletMarker::Note);
+    assert_eq!(bullet, Bullet::note("buy bread"));
 }
 
 #[test]
-fn remove_returns_none_out_of_bounds() {
-    let mut journal = Journal::new(name("remove"));
-    journal.push(Bullet::note("only"));
+fn raw_lines_ignore_marker_changes() {
+    let mut bullet = Bullet::Raw("# Heading".to_owned());
+    assert_eq!(bullet.marker(), None);
 
-    assert!(journal.remove(0).is_some());
-    assert!(journal.remove(0).is_none());
-    assert!(journal.is_empty());
+    bullet.set_marker(BulletMarker::Task);
+    assert_eq!(bullet, Bullet::Raw("# Heading".to_owned()));
+}
+
+fn completed(text: &str) -> Bullet {
+    Bullet::Task {
+        text: text.to_owned(),
+        completed: true,
+    }
 }

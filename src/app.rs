@@ -1,8 +1,8 @@
-//! egui presentation layer: journal list, creation and editor.
+//! egui presentation layer: journal list, section tabs and page editor.
 
 use eframe::egui;
 
-use crate::journal::{Bullet, Journal, JournalName, JournalStorage};
+use crate::journal::{Bullet, BulletMarker, Journal, JournalName, JournalStorage, SectionKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum NewBulletKind {
@@ -32,8 +32,11 @@ pub struct UrustJournalApp {
     journals: Vec<JournalName>,
     selected: Option<JournalName>,
     current: Option<Journal>,
+    active_section: SectionKind,
+    selected_page: Option<usize>,
     new_journal_name: String,
     rename_name: String,
+    new_page_title: String,
     new_bullet: String,
     new_bullet_kind: NewBulletKind,
     status: Option<Status>,
@@ -48,8 +51,11 @@ impl UrustJournalApp {
             journals: Vec::new(),
             selected: None,
             current: None,
+            active_section: SectionKind::Journal,
+            selected_page: None,
             new_journal_name: String::new(),
             rename_name: String::new(),
+            new_page_title: String::new(),
             new_bullet: String::new(),
             new_bullet_kind: NewBulletKind::Task,
             status: None,
@@ -80,6 +86,19 @@ impl UrustJournalApp {
         });
     }
 
+    fn first_page_index(&self, kind: SectionKind) -> Option<usize> {
+        let section = self.current.as_ref()?.section(kind);
+        if section.is_empty() { None } else { Some(0) }
+    }
+
+    fn switch_section(&mut self, kind: SectionKind) {
+        if self.active_section == kind {
+            return;
+        }
+        self.active_section = kind;
+        self.selected_page = self.first_page_index(kind);
+    }
+
     fn create_journal(&mut self) {
         let name = match JournalName::new(self.new_journal_name.trim()) {
             Ok(name) => name,
@@ -91,6 +110,8 @@ impl UrustJournalApp {
                 self.rename_name = name.as_str().to_owned();
                 self.selected = Some(name.clone());
                 self.current = Some(journal);
+                self.active_section = SectionKind::Journal;
+                self.selected_page = None;
                 self.dirty = false;
                 self.show_info(format!("Journal '{name}' creado."));
                 self.refresh();
@@ -105,6 +126,10 @@ impl UrustJournalApp {
                 self.rename_name = name.as_str().to_owned();
                 self.selected = Some(name);
                 self.current = Some(journal);
+                self.active_section = SectionKind::Journal;
+                self.selected_page = self.first_page_index(SectionKind::Journal);
+                self.new_page_title.clear();
+                self.new_bullet.clear();
                 self.dirty = false;
                 self.status = None;
             }
@@ -134,6 +159,7 @@ impl UrustJournalApp {
             Ok(()) => {
                 self.selected = None;
                 self.current = None;
+                self.selected_page = None;
                 self.rename_name.clear();
                 self.dirty = false;
                 self.show_info(format!("Journal '{name}' eliminado."));
@@ -181,7 +207,50 @@ impl UrustJournalApp {
         }
     }
 
+    fn create_page(&mut self) {
+        let title = self.new_page_title.clone();
+        let kind = self.active_section;
+        let result = match self.current.as_mut() {
+            Some(journal) => journal.add_page(kind, &title),
+            None => {
+                self.show_error("No hay ningún journal abierto.");
+                return;
+            }
+        };
+        match result {
+            Ok(index) => {
+                self.new_page_title.clear();
+                self.selected_page = Some(index);
+                self.dirty = true;
+                self.show_info(format!("Página '{}' creada.", title.trim()));
+            }
+            Err(error) => self.show_error(error),
+        }
+    }
+
+    fn delete_page(&mut self, index: usize) {
+        let kind = self.active_section;
+        let removed = self
+            .current
+            .as_mut()
+            .and_then(|journal| journal.remove_page(kind, index));
+        if removed.is_none() {
+            return;
+        }
+        self.selected_page = match self.selected_page {
+            Some(current) if current == index => None,
+            Some(current) if current > index => Some(current - 1),
+            other => other,
+        };
+        self.dirty = true;
+        self.show_info("Página eliminada.");
+    }
+
     fn add_bullet(&mut self) {
+        let Some(page_index) = self.selected_page else {
+            self.show_error("Selecciona una página antes de añadir bullets.");
+            return;
+        };
         let text = self.new_bullet.trim();
         if text.is_empty() {
             self.show_error("El texto del bullet no puede estar vacío.");
@@ -192,11 +261,16 @@ impl UrustJournalApp {
             NewBulletKind::Note => Bullet::note(text),
             NewBulletKind::Event => Bullet::event(text),
         };
-        let Some(journal) = self.current.as_mut() else {
-            self.show_error("No hay ningún journal abierto.");
+        let kind = self.active_section;
+        let Some(page) = self
+            .current
+            .as_mut()
+            .and_then(|journal| journal.page_mut(kind, page_index))
+        else {
+            self.show_error("La página seleccionada ya no existe.");
             return;
         };
-        journal.push(bullet);
+        page.push(bullet);
         self.new_bullet.clear();
         self.dirty = true;
     }
@@ -252,11 +326,7 @@ impl UrustJournalApp {
         }
     }
 
-    fn editor(&mut self, ui: &mut egui::Ui) {
-        let Some(name) = self.current.as_ref().map(|journal| journal.name().clone()) else {
-            return;
-        };
-
+    fn journal_header(&mut self, ui: &mut egui::Ui, name: &JournalName) {
         ui.horizontal(|ui| {
             ui.heading(name.as_str());
             if self.dirty {
@@ -284,54 +354,134 @@ impl UrustJournalApp {
                 self.delete_selected();
             }
         });
+    }
 
-        ui.separator();
+    fn section_tabs(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            for kind in SectionKind::ALL {
+                if ui
+                    .selectable_label(self.active_section == kind, kind.label())
+                    .clicked()
+                {
+                    self.switch_section(kind);
+                }
+            }
+        });
+    }
 
-        let mut toggle_index = None;
+    fn page_bar(&mut self, ui: &mut egui::Ui) {
+        let kind = self.active_section;
+        let mut select_page = None;
+        let mut delete_page = None;
+
+        ui.horizontal_wrapped(|ui| {
+            if let Some(journal) = self.current.as_ref() {
+                let section = journal.section(kind);
+                if section.is_empty() {
+                    ui.weak("Sin páginas en esta sección.");
+                }
+                for (index, page) in section.pages().iter().enumerate() {
+                    let is_selected = self.selected_page == Some(index);
+                    if ui.selectable_label(is_selected, page.title()).clicked() {
+                        select_page = Some(index);
+                    }
+                    if ui
+                        .small_button("x")
+                        .on_hover_text("Eliminar página")
+                        .clicked()
+                    {
+                        delete_page = Some(index);
+                    }
+                }
+            }
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Nueva página:");
+            let response = ui.add(
+                egui::TextEdit::singleline(&mut self.new_page_title)
+                    .hint_text("2026-11-08")
+                    .desired_width(180.0),
+            );
+            let submitted =
+                response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter));
+            if ui.button("Crear página").clicked() || submitted {
+                self.create_page();
+            }
+        });
+
+        if let Some(index) = select_page {
+            self.selected_page = Some(index);
+        }
+        if let Some(index) = delete_page {
+            self.delete_page(index);
+        }
+    }
+
+    fn page_editor(&mut self, ui: &mut egui::Ui) {
+        let kind = self.active_section;
+        let Some(page_index) = self.selected_page else {
+            ui.weak("Selecciona o crea una página en esta sección.");
+            return;
+        };
+
+        let Some(title) = self
+            .current
+            .as_ref()
+            .and_then(|journal| journal.page(kind, page_index))
+            .map(|page| page.title().to_owned())
+        else {
+            self.selected_page = None;
+            return;
+        };
+
+        ui.heading(title);
+
+        let mut marker_change = None;
         let mut remove_index = None;
         let bullets_height = (ui.available_height() - 48.0).max(80.0);
 
         egui::ScrollArea::vertical()
             .max_height(bullets_height)
             .show(ui, |ui| {
-                let Some(journal) = self.current.as_ref() else {
+                let Some(page) = self
+                    .current
+                    .as_ref()
+                    .and_then(|journal| journal.page(kind, page_index))
+                else {
                     return;
                 };
-                if journal.is_empty() {
-                    ui.weak("Journal vacío. Añade una tarea, nota o evento.");
+                if page.is_empty() {
+                    ui.weak("Página vacía. Añade una tarea, nota o evento.");
                 }
-                for (index, bullet) in journal.bullets().iter().enumerate() {
+                for (index, bullet) in page.bullets().iter().enumerate() {
                     ui.horizontal(|ui| {
                         match bullet {
-                            Bullet::Task { text, completed } => {
-                                let mut done = *completed;
-                                if ui.checkbox(&mut done, "").changed() {
-                                    toggle_index = Some(index);
+                            Bullet::Raw(text) => {
+                                ui.monospace(text);
+                            }
+                            _ => {
+                                if let Some(current_marker) = bullet.marker() {
+                                    ui.menu_button(current_marker.symbol(), |ui| {
+                                        for option in BulletMarker::ALL {
+                                            let selected = option == current_marker;
+                                            let label =
+                                                format!("{}  {}", option.symbol(), option.label());
+                                            if ui.selectable_label(selected, label).clicked() {
+                                                marker_change = Some((index, option));
+                                                ui.close();
+                                            }
+                                        }
+                                    })
+                                    .response
+                                    .on_hover_text("Cambiar marcador");
                                 }
-                                let mut rich = egui::RichText::new(text);
-                                if *completed {
+
+                                let mut rich = egui::RichText::new(bullet.text());
+                                if bullet.marker() == Some(BulletMarker::Completed) {
                                     rich = rich.strikethrough().weak();
                                 }
                                 ui.label(rich);
-                            }
-                            Bullet::Migrated(text) => {
-                                ui.monospace(">");
-                                ui.label(text);
-                            }
-                            Bullet::Scheduled(text) => {
-                                ui.monospace("<");
-                                ui.label(text);
-                            }
-                            Bullet::Event(text) => {
-                                ui.monospace("o");
-                                ui.label(text);
-                            }
-                            Bullet::Note(text) => {
-                                ui.monospace("-");
-                                ui.label(text);
-                            }
-                            Bullet::Raw(text) => {
-                                ui.monospace(text);
                             }
                         }
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -343,15 +493,24 @@ impl UrustJournalApp {
                 }
             });
 
-        if let Some(index) = toggle_index {
-            if let Some(journal) = self.current.as_mut() {
-                journal.toggle(index);
+        if let Some((index, marker)) = marker_change {
+            if let Some(page) = self
+                .current
+                .as_mut()
+                .and_then(|journal| journal.page_mut(kind, page_index))
+                && let Some(bullet) = page.bullet_mut(index)
+            {
+                bullet.set_marker(marker);
             }
             self.dirty = true;
         }
         if let Some(index) = remove_index {
-            if let Some(journal) = self.current.as_mut() {
-                journal.remove(index);
+            if let Some(page) = self
+                .current
+                .as_mut()
+                .and_then(|journal| journal.page_mut(kind, page_index))
+            {
+                page.remove(index);
             }
             self.dirty = true;
         }
@@ -385,6 +544,19 @@ impl UrustJournalApp {
                 self.add_bullet();
             }
         });
+    }
+
+    fn editor(&mut self, ui: &mut egui::Ui) {
+        let Some(name) = self.current.as_ref().map(|journal| journal.name().clone()) else {
+            return;
+        };
+
+        self.journal_header(ui, &name);
+        ui.separator();
+        self.section_tabs(ui);
+        self.page_bar(ui);
+        ui.separator();
+        self.page_editor(ui);
     }
 }
 
