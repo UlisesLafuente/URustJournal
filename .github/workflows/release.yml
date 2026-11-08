@@ -1,0 +1,159 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  BIN_NAME: urust_journal
+  APP_NAME: UrustJournal
+
+jobs:
+  release-linux:
+    name: Linux AppImage
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev libglib2.0-dev libatk1.0-dev libpango1.0-dev libcairo2-dev \
+            libgdk-pixbuf-2.0-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
+            libxrandr-dev libxi-dev libxcursor-dev libxinerama-dev libgl1-mesa-dev \
+            libasound2-dev
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+      - name: Build release binary
+        run: cargo build --release --locked
+      - name: Prepare AppDir
+        run: |
+          set -e
+          mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
+          cp target/release/${BIN_NAME} AppDir/usr/bin/${BIN_NAME}
+          cp packaging/urustjournal.desktop AppDir/usr/share/applications/urustjournal.desktop
+          cp packaging/urustjournal.desktop AppDir/urustjournal.desktop
+          cp assets/app-icon.png AppDir/usr/share/icons/hicolor/256x256/apps/urustjournal.png
+          cp assets/app-icon.png AppDir/urustjournal.png
+          (cd AppDir && ln -s usr/bin/${BIN_NAME} AppRun)
+          chmod +x AppDir/AppRun AppDir/usr/bin/${BIN_NAME}
+      - name: Build AppImage
+        run: |
+          set -e
+          ARCH=x86_64
+          curl -fsSL -o linuxdeploy "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${ARCH}.AppImage"
+          chmod +x linuxdeploy
+          export APPIMAGE_EXTRACT_AND_RUN=1
+          ./linuxdeploy --appdir AppDir \
+            --desktop-file AppDir/usr/share/applications/urustjournal.desktop \
+            --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/urustjournal.png \
+            --output appimage
+          mkdir -p dist
+          mv *.AppImage "dist/${APP_NAME}-linux-x86_64.AppImage"
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-linux-x86_64
+          path: dist/${{ env.APP_NAME }}-linux-x86_64.AppImage
+          if-no-files-found: error
+
+  release-windows:
+    name: Windows x86_64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+      - name: Build release binary
+        run: cargo build --release --locked
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $zip = "dist/${{ env.APP_NAME }}-windows-x86_64.zip"
+          Compress-Archive -Path "target/release/${{ env.BIN_NAME }}.exe","README.md","LICENSE-MIT","LICENSE-APACHE" -DestinationPath $zip -Force
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-windows-x86_64
+          path: dist/${{ env.APP_NAME }}-windows-x86_64.zip
+          if-no-files-found: error
+
+  release-macos:
+    name: macOS universal
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+      - name: Build release binaries
+        run: |
+          cargo build --release --locked --target aarch64-apple-darwin
+          cargo build --release --locked --target x86_64-apple-darwin
+      - name: Create universal binary and app bundle
+        run: |
+          set -e
+          mkdir -p "dist/${APP_NAME}.app/Contents/MacOS" "dist/${APP_NAME}.app/Contents/Resources"
+          lipo -create \
+            "target/aarch64-apple-darwin/release/${BIN_NAME}" \
+            "target/x86_64-apple-darwin/release/${BIN_NAME}" \
+            -output "dist/${APP_NAME}.app/Contents/MacOS/${BIN_NAME}"
+          chmod +x "dist/${APP_NAME}.app/Contents/MacOS/${BIN_NAME}"
+          sips -s format icns assets/app-icon.png --out "dist/${APP_NAME}.app/Contents/Resources/AppIcon.icns"
+          cat > "dist/${APP_NAME}.app/Contents/Info.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key><string>${APP_NAME}</string>
+            <key>CFBundleDisplayName</key><string>${APP_NAME}</string>
+            <key>CFBundleIdentifier</key><string>org.urustjournal.UrustJournal</string>
+            <key>CFBundleVersion</key><string>${GITHUB_REF_NAME}</string>
+            <key>CFBundleShortVersionString</key><string>${GITHUB_REF_NAME}</string>
+            <key>CFBundleExecutable</key><string>${BIN_NAME}</string>
+            <key>CFBundleIconFile</key><string>AppIcon</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          (cd dist && ditto -c -k --sequesterRsrc --keepParent "${APP_NAME}.app" "${APP_NAME}-macos-universal.zip")
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-macos-universal
+          path: dist/${{ env.APP_NAME }}-macos-universal.zip
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: [release-linux, release-windows, release-macos]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true

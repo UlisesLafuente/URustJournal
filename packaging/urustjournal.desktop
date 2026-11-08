@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=UrustJournal
+Comment=A cross-platform bullet journal
+Exec=urust_journal
+Icon=urustjournal
+Categories=Utility;Office;
+StartupWMClass=UrustJournal
+Terminal=false
