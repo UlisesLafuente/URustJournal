@@ -267,6 +267,7 @@ pub struct UrustJournalApp {
     show_create_bar: bool,
     show_sections_pages: bool,
     show_annotations: bool,
+    show_journal_actions: bool,
     editing_bullet: Option<(usize, String)>,
     theme: Theme,
 }
@@ -297,6 +298,7 @@ impl UrustJournalApp {
             show_create_bar: true,
             show_sections_pages: true,
             show_annotations: true,
+            show_journal_actions: true,
             editing_bullet: None,
             theme,
         };
@@ -594,34 +596,38 @@ impl UrustJournalApp {
     }
 
     fn journal_header(&mut self, ui: &mut egui::Ui, name: &JournalName) {
+        let arrow_color = self.theme.palette().accent;
         ui.horizontal(|ui| {
+            collapse_arrow(ui, &mut self.show_journal_actions, "▲", "▼", arrow_color);
             ui.heading(script_heading(name.as_str()));
             if self.dirty {
                 ui.colored_label(PENDING_INK, "• sin guardar");
             }
         });
 
-        ui.horizontal(|ui| {
-            ui.label("Renombrar:");
-            ui.add(
-                egui::TextEdit::singleline(&mut self.rename_name)
-                    .font(script_font(SCRIPT_SIZE))
-                    .desired_width(160.0)
-                    .hint_text(hint("nuevo_nombre", self.theme)),
-            );
-            if ui.button("Renombrar").clicked() {
-                self.rename_selected();
-            }
-            if ui
-                .add_enabled(self.dirty, egui::Button::new("Guardar"))
-                .clicked()
-            {
-                self.save_journal();
-            }
-            if ui.button("Eliminar").clicked() {
-                self.delete_selected();
-            }
-        });
+        if self.show_journal_actions {
+            ui.horizontal(|ui| {
+                ui.label("Renombrar:");
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.rename_name)
+                        .font(script_font(SCRIPT_SIZE))
+                        .desired_width(160.0)
+                        .hint_text(hint("nuevo_nombre", self.theme)),
+                );
+                if ui.button("Renombrar").clicked() {
+                    self.rename_selected();
+                }
+                if ui
+                    .add_enabled(self.dirty, egui::Button::new("Guardar"))
+                    .clicked()
+                {
+                    self.save_journal();
+                }
+                if ui.button("Eliminar").clicked() {
+                    self.delete_selected();
+                }
+            });
+        }
     }
 
     fn section_tabs(&mut self, ui: &mut egui::Ui) {
