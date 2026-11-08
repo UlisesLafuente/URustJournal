@@ -21,6 +21,6 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "UrustJournal",
         options,
-        Box::new(move |_cc| Ok(Box::new(UrustJournalApp::new(storage)))),
+        Box::new(move |cc| Ok(Box::new(UrustJournalApp::new(cc, storage)))),
     )
 }
