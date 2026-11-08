@@ -120,6 +120,20 @@ fn license_block(ui: &mut egui::Ui, text: &str, monospace: bool) {
         });
 }
 
+fn collapse_arrow(ui: &mut egui::Ui, expanded: &mut bool, open_symbol: &str, closed_symbol: &str) {
+    let symbol = if *expanded {
+        open_symbol
+    } else {
+        closed_symbol
+    };
+    if ui
+        .add(egui::Button::new(egui::RichText::new(symbol).color(TAUPE)).frame(false))
+        .clicked()
+    {
+        *expanded = !*expanded;
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum NewBulletKind {
     Task,
@@ -158,6 +172,10 @@ pub struct UrustJournalApp {
     status: Option<Status>,
     dirty: bool,
     show_about: bool,
+    show_journal_list: bool,
+    show_create_bar: bool,
+    show_sections_pages: bool,
+    show_annotations: bool,
 }
 
 impl UrustJournalApp {
@@ -181,6 +199,10 @@ impl UrustJournalApp {
             status: None,
             dirty: false,
             show_about: false,
+            show_journal_list: true,
+            show_create_bar: true,
+            show_sections_pages: true,
+            show_annotations: true,
         };
         app.refresh();
         app
@@ -398,19 +420,22 @@ impl UrustJournalApp {
 
     fn top_bar(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
+            collapse_arrow(ui, &mut self.show_create_bar, "▲", "▼");
             ui.heading("UrustJournal");
-            ui.separator();
-            ui.label("Nuevo journal:");
-            let response = ui.add(
-                egui::TextEdit::singleline(&mut self.new_journal_name)
-                    .font(script_font(SCRIPT_SIZE))
-                    .hint_text(hint("mi_journal"))
-                    .desired_width(180.0),
-            );
-            let submitted =
-                response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter));
-            if ui.button("Crear").clicked() || submitted {
-                self.create_journal();
+            if self.show_create_bar {
+                ui.separator();
+                ui.label("Nuevo journal:");
+                let response = ui.add(
+                    egui::TextEdit::singleline(&mut self.new_journal_name)
+                        .font(script_font(SCRIPT_SIZE))
+                        .hint_text(hint("mi_journal"))
+                        .desired_width(180.0),
+                );
+                let submitted =
+                    response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter));
+                if ui.button("Crear").clicked() || submitted {
+                    self.create_journal();
+                }
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui.button("Acerca de").clicked() {
@@ -430,9 +455,6 @@ impl UrustJournalApp {
     }
 
     fn journal_list(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Journals");
-        ui.separator();
-
         if self.journals.is_empty() {
             ui.weak("Aún no hay journals.");
             return;
@@ -553,7 +575,7 @@ impl UrustJournalApp {
         }
     }
 
-    fn page_editor(&mut self, ui: &mut egui::Ui) {
+    fn page_editor(&mut self, ui: &mut egui::Ui, show_annotations: bool) {
         let kind = self.active_section;
         let Some(page_index) = self.selected_page else {
             ui.weak("Selecciona o crea una página en esta sección.");
@@ -574,100 +596,103 @@ impl UrustJournalApp {
 
         let mut marker_change = None;
         let mut remove_index = None;
-        let bullets_height = (ui.available_height() - 60.0).max(80.0);
 
-        egui::Frame::new()
-            .fill(BONE)
-            .stroke(egui::Stroke::new(1.5, TAUPE))
-            .corner_radius(egui::CornerRadius::same(8))
-            .inner_margin(egui::Margin::same(10))
-            .show(ui, |ui| {
-                ui.set_min_width(ui.available_width());
-                egui::ScrollArea::vertical()
-                    .max_height(bullets_height)
-                    .show(ui, |ui| {
-                        let Some(page) = self
-                            .current
-                            .as_ref()
-                            .and_then(|journal| journal.page(kind, page_index))
-                        else {
-                            return;
-                        };
-                        if page.is_empty() {
-                            ui.weak("Página vacía. Añade una tarea, nota o evento.");
-                        }
-                        for (index, bullet) in page.bullets().iter().enumerate() {
-                            let row = ui.horizontal(|ui| {
-                                match bullet {
-                                    Bullet::Raw(text) => {
-                                        ui.monospace(text);
-                                    }
-                                    _ => {
-                                        if let Some(current_marker) = bullet.marker() {
-                                            let response = ui
-                                                .add(
-                                                    egui::Label::new(
-                                                        egui::RichText::new(
-                                                            current_marker.symbol(),
+        if show_annotations {
+            let bullets_height = (ui.available_height() - 60.0).max(80.0);
+
+            egui::Frame::new()
+                .fill(BONE)
+                .stroke(egui::Stroke::new(1.5, TAUPE))
+                .corner_radius(egui::CornerRadius::same(8))
+                .inner_margin(egui::Margin::same(10))
+                .show(ui, |ui| {
+                    ui.set_min_width(ui.available_width());
+                    egui::ScrollArea::vertical()
+                        .max_height(bullets_height)
+                        .show(ui, |ui| {
+                            let Some(page) = self
+                                .current
+                                .as_ref()
+                                .and_then(|journal| journal.page(kind, page_index))
+                            else {
+                                return;
+                            };
+                            if page.is_empty() {
+                                ui.weak("Página vacía. Añade una tarea, nota o evento.");
+                            }
+                            for (index, bullet) in page.bullets().iter().enumerate() {
+                                let row = ui.horizontal(|ui| {
+                                    match bullet {
+                                        Bullet::Raw(text) => {
+                                            ui.monospace(text);
+                                        }
+                                        _ => {
+                                            if let Some(current_marker) = bullet.marker() {
+                                                let response = ui
+                                                    .add(
+                                                        egui::Label::new(
+                                                            egui::RichText::new(
+                                                                current_marker.symbol(),
+                                                            )
+                                                            .size(MARKER_SIZE)
+                                                            .color(INK),
                                                         )
-                                                        .size(MARKER_SIZE)
-                                                        .color(INK),
+                                                        .sense(egui::Sense::click()),
                                                     )
-                                                    .sense(egui::Sense::click()),
-                                                )
-                                                .on_hover_text("Cambiar marcador");
+                                                    .on_hover_text("Cambiar marcador");
 
-                                            egui::Popup::menu(&response).show(|ui| {
-                                                for option in BulletMarker::ALL {
-                                                    let selected = option == current_marker;
-                                                    let label = format!(
-                                                        "{}  {}",
-                                                        option.symbol(),
-                                                        option.label()
-                                                    );
-                                                    if ui
-                                                        .selectable_label(selected, label)
-                                                        .clicked()
-                                                    {
-                                                        marker_change = Some((index, option));
-                                                        ui.close();
+                                                egui::Popup::menu(&response).show(|ui| {
+                                                    for option in BulletMarker::ALL {
+                                                        let selected = option == current_marker;
+                                                        let label = format!(
+                                                            "{}  {}",
+                                                            option.symbol(),
+                                                            option.label()
+                                                        );
+                                                        if ui
+                                                            .selectable_label(selected, label)
+                                                            .clicked()
+                                                        {
+                                                            marker_change = Some((index, option));
+                                                            ui.close();
+                                                        }
                                                     }
-                                                }
-                                            });
-                                        }
+                                                });
+                                            }
 
-                                        let mut rich = egui::RichText::new(bullet.text())
-                                            .text_style(script_text_style());
-                                        if bullet.marker() == Some(BulletMarker::Completed) {
-                                            rich = rich.strikethrough().weak();
+                                            let mut rich = egui::RichText::new(bullet.text())
+                                                .text_style(script_text_style());
+                                            if bullet.marker() == Some(BulletMarker::Completed) {
+                                                rich = rich.strikethrough().weak();
+                                            }
+                                            ui.label(rich);
                                         }
-                                        ui.label(rich);
                                     }
-                                }
-                                ui.with_layout(
-                                    egui::Layout::right_to_left(egui::Align::Center),
-                                    |ui| {
-                                        if ui.small_button("x").clicked() {
-                                            remove_index = Some(index);
-                                        }
-                                    },
-                                );
-                            });
+                                    ui.with_layout(
+                                        egui::Layout::right_to_left(egui::Align::Center),
+                                        |ui| {
+                                            if ui.small_button("x").clicked() {
+                                                remove_index = Some(index);
+                                            }
+                                        },
+                                    );
+                                });
 
-                            let line_y = row.response.rect.bottom() + 3.0;
-                            let line_left = row.response.rect.left();
-                            let line_right = ui.max_rect().right();
-                            ui.painter().line_segment(
-                                [
-                                    egui::pos2(line_left, line_y),
-                                    egui::pos2(line_right, line_y),
-                                ],
-                                egui::Stroke::new(1.0, TAUPE),
-                            );
-                            ui.add_space(3.0);
-                        }
-                    });
-            });
+                                let line_y = row.response.rect.bottom() + 3.0;
+                                let line_left = row.response.rect.left();
+                                let line_right = ui.max_rect().right();
+                                ui.painter().line_segment(
+                                    [
+                                        egui::pos2(line_left, line_y),
+                                        egui::pos2(line_right, line_y),
+                                    ],
+                                    egui::Stroke::new(1.0, TAUPE),
+                                );
+                                ui.add_space(3.0);
+                            }
+                        });
+                });
+        }
 
         if let Some((index, marker)) = marker_change {
             if let Some(page) = self
@@ -729,11 +754,23 @@ impl UrustJournalApp {
         };
 
         self.journal_header(ui, &name);
+
         ui.separator();
-        self.section_tabs(ui);
-        self.page_bar(ui);
+        ui.horizontal(|ui| {
+            collapse_arrow(ui, &mut self.show_sections_pages, "▲", "▼");
+            ui.label("Secciones y páginas");
+        });
+        if self.show_sections_pages {
+            self.section_tabs(ui);
+            self.page_bar(ui);
+        }
+
         ui.separator();
-        self.page_editor(ui);
+        ui.horizontal(|ui| {
+            collapse_arrow(ui, &mut self.show_annotations, "▲", "▼");
+            ui.label("Anotaciones");
+        });
+        self.page_editor(ui, self.show_annotations);
     }
 
     fn about_window(&mut self, ctx: &egui::Context) {
@@ -747,7 +784,7 @@ impl UrustJournalApp {
                 ui.heading(script_heading("UrustJournal"));
                 ui.label(format!("Versión {}", env!("CARGO_PKG_VERSION")));
                 ui.label(env!("CARGO_PKG_DESCRIPTION"));
-                ui.label(format!("© Ulises Lafuente Ramos - 2026"));
+                ui.label("© Ulises Lafuente Ramos - 2026");
                 ui.label(format!("Licencia: {}", env!("CARGO_PKG_LICENSE")));
 
                 let repository = env!("CARGO_PKG_REPOSITORY");
@@ -783,10 +820,31 @@ impl eframe::App for UrustJournalApp {
 
         egui::TopBottomPanel::top("top_bar").show(ctx, |ui| self.top_bar(ui));
 
-        egui::SidePanel::left("journal_list")
-            .resizable(true)
-            .default_width(220.0)
-            .show(ctx, |ui| self.journal_list(ui));
+        if self.show_journal_list {
+            egui::SidePanel::left("journal_list")
+                .resizable(true)
+                .default_width(220.0)
+                .show(ctx, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.heading("Journals");
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            collapse_arrow(ui, &mut self.show_journal_list, "◀", "▶");
+                        });
+                    });
+                    ui.separator();
+                    self.journal_list(ui);
+                });
+        } else {
+            egui::SidePanel::left("journal_list_collapsed")
+                .resizable(false)
+                .exact_width(28.0)
+                .show(ctx, |ui| {
+                    ui.vertical_centered(|ui| {
+                        ui.add_space(6.0);
+                        collapse_arrow(ui, &mut self.show_journal_list, "◀", "▶");
+                    });
+                });
+        }
 
         egui::CentralPanel::default().show(ctx, |ui| {
             if self.current.is_some() {
