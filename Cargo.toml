@@ -2,6 +2,10 @@
 name = "urust_journal"
 version = "0.1.0"
 edition = "2024"
+description = "A cross-platform bullet journal written in Rust."
+license = "MIT OR Apache-2.0"
+keywords = ["journal", "notes", "bullet-journal", "egui", "productivity"]
+categories = ["gui"]
 
 [dependencies]
 directories = "6"

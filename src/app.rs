@@ -108,6 +108,18 @@ fn hint(text: &str) -> egui::RichText {
     egui::RichText::new(text).color(TAUPE)
 }
 
+fn license_block(ui: &mut egui::Ui, text: &str, monospace: bool) {
+    egui::ScrollArea::vertical()
+        .max_height(220.0)
+        .show(ui, |ui| {
+            let mut rich = egui::RichText::new(text).size(11.0);
+            if monospace {
+                rich = rich.monospace();
+            }
+            ui.add(egui::Label::new(rich).selectable(true));
+        });
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum NewBulletKind {
     Task,
@@ -145,6 +157,7 @@ pub struct UrustJournalApp {
     new_bullet_kind: NewBulletKind,
     status: Option<Status>,
     dirty: bool,
+    show_about: bool,
 }
 
 impl UrustJournalApp {
@@ -167,6 +180,7 @@ impl UrustJournalApp {
             new_bullet_kind: NewBulletKind::Task,
             status: None,
             dirty: false,
+            show_about: false,
         };
         app.refresh();
         app
@@ -398,6 +412,11 @@ impl UrustJournalApp {
             if ui.button("Crear").clicked() || submitted {
                 self.create_journal();
             }
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button("Acerca de").clicked() {
+                    self.show_about = true;
+                }
+            });
         });
 
         if let Some(status) = &self.status {
@@ -716,6 +735,41 @@ impl UrustJournalApp {
         ui.separator();
         self.page_editor(ui);
     }
+
+    fn about_window(&mut self, ctx: &egui::Context) {
+        let mut open = self.show_about;
+        egui::Window::new("Acerca de UrustJournal")
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(true)
+            .default_width(600.0)
+            .show(ctx, |ui| {
+                ui.heading(script_heading("UrustJournal"));
+                ui.label(format!("Versión {}", env!("CARGO_PKG_VERSION")));
+                ui.label(env!("CARGO_PKG_DESCRIPTION"));
+                ui.label(format!("Licencia: {}", env!("CARGO_PKG_LICENSE")));
+
+                let repository = env!("CARGO_PKG_REPOSITORY");
+                if !repository.is_empty() {
+                    ui.hyperlink_to("Repositorio", repository);
+                }
+
+                ui.separator();
+                ui.collapsing("Licencia MIT", |ui| {
+                    license_block(ui, include_str!("../LICENSE-MIT"), false);
+                });
+                ui.collapsing("Licencia Apache 2.0", |ui| {
+                    license_block(ui, include_str!("../LICENSE-APACHE"), false);
+                });
+                ui.collapsing("Fuente Caveat (SIL OFL 1.1)", |ui| {
+                    license_block(ui, include_str!("../assets/fonts/OFL-Caveat.txt"), false);
+                });
+                ui.collapsing("Dependencias de Rust", |ui| {
+                    license_block(ui, include_str!("../assets/THIRD_PARTY_LICENSES.txt"), true);
+                });
+            });
+        self.show_about = open;
+    }
 }
 
 impl eframe::App for UrustJournalApp {
@@ -742,6 +796,8 @@ impl eframe::App for UrustJournalApp {
                 });
             }
         });
+
+        self.about_window(ctx);
     }
 }
 
