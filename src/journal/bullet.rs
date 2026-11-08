@@ -70,19 +70,81 @@ impl BulletMarker {
     }
 }
 
+/// Optional text color for an annotation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum AnnotationColor {
+    #[default]
+    Black,
+    DesaturatedBlue,
+    EmeraldGreen,
+    RustRed,
+}
+
+impl AnnotationColor {
+    pub const ALL: [Self; 4] = [
+        Self::Black,
+        Self::DesaturatedBlue,
+        Self::EmeraldGreen,
+        Self::RustRed,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Black => "Negro",
+            Self::DesaturatedBlue => "Azul desaturado",
+            Self::EmeraldGreen => "Verde esmeralda",
+            Self::RustRed => "Rojo óxido",
+        }
+    }
+
+    fn tag(self) -> Option<&'static str> {
+        match self {
+            Self::Black => None,
+            Self::DesaturatedBlue => Some("blue"),
+            Self::EmeraldGreen => Some("emerald"),
+            Self::RustRed => Some("rust"),
+        }
+    }
+
+    fn from_tag(tag: &str) -> Option<Self> {
+        match tag {
+            "blue" => Some(Self::DesaturatedBlue),
+            "emerald" => Some(Self::EmeraldGreen),
+            "rust" => Some(Self::RustRed),
+            _ => None,
+        }
+    }
+}
+
 /// A single bullet journal entry.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Bullet {
     /// A task, either open or completed.
-    Task { text: String, completed: bool },
+    Task {
+        text: String,
+        completed: bool,
+        color: AnnotationColor,
+    },
     /// A task moved to a future collection.
-    Migrated(String),
+    Migrated {
+        text: String,
+        color: AnnotationColor,
+    },
     /// A task scheduled for a future date.
-    Scheduled(String),
+    Scheduled {
+        text: String,
+        color: AnnotationColor,
+    },
     /// An event that happened.
-    Event(String),
+    Event {
+        text: String,
+        color: AnnotationColor,
+    },
     /// A plain note.
-    Note(String),
+    Note {
+        text: String,
+        color: AnnotationColor,
+    },
     /// Any line that could not be parsed, kept exactly as written.
     Raw(String),
 }
@@ -115,20 +177,31 @@ impl Bullet {
 
     /// Creates a bullet from a marker and text.
     pub fn with_marker(marker: BulletMarker, text: impl Into<String>) -> Self {
+        Self::with_marker_and_color(marker, text, AnnotationColor::default())
+    }
+
+    /// Creates a bullet from a marker, text and color.
+    pub fn with_marker_and_color(
+        marker: BulletMarker,
+        text: impl Into<String>,
+        color: AnnotationColor,
+    ) -> Self {
         let text = text.into();
         match marker {
             BulletMarker::Task => Self::Task {
                 text,
                 completed: false,
+                color,
             },
             BulletMarker::Completed => Self::Task {
                 text,
                 completed: true,
+                color,
             },
-            BulletMarker::Migrated => Self::Migrated(text),
-            BulletMarker::Scheduled => Self::Scheduled(text),
-            BulletMarker::Event => Self::Event(text),
-            BulletMarker::Note => Self::Note(text),
+            BulletMarker::Migrated => Self::Migrated { text, color },
+            BulletMarker::Scheduled => Self::Scheduled { text, color },
+            BulletMarker::Event => Self::Event { text, color },
+            BulletMarker::Note => Self::Note { text, color },
         }
     }
 
@@ -141,31 +214,68 @@ impl Bullet {
             Self::Task {
                 completed: true, ..
             } => Some(BulletMarker::Completed),
-            Self::Migrated(_) => Some(BulletMarker::Migrated),
-            Self::Scheduled(_) => Some(BulletMarker::Scheduled),
-            Self::Event(_) => Some(BulletMarker::Event),
-            Self::Note(_) => Some(BulletMarker::Note),
+            Self::Migrated { .. } => Some(BulletMarker::Migrated),
+            Self::Scheduled { .. } => Some(BulletMarker::Scheduled),
+            Self::Event { .. } => Some(BulletMarker::Event),
+            Self::Note { .. } => Some(BulletMarker::Note),
             Self::Raw(_) => None,
         }
     }
 
-    /// Changes the marker while preserving the text. Raw lines are unchanged.
+    /// Changes the marker while preserving the text and color. Raw lines are unchanged.
     pub fn set_marker(&mut self, marker: BulletMarker) {
         if matches!(self, Self::Raw(_)) {
             return;
         }
         let text = self.text().to_owned();
-        *self = Self::with_marker(marker, text);
+        let color = self.color();
+        *self = Self::with_marker_and_color(marker, text, color);
+    }
+
+    /// Returns the annotation color.
+    pub fn color(&self) -> AnnotationColor {
+        match self {
+            Self::Task { color, .. }
+            | Self::Migrated { color, .. }
+            | Self::Scheduled { color, .. }
+            | Self::Event { color, .. }
+            | Self::Note { color, .. } => *color,
+            Self::Raw(_) => AnnotationColor::Black,
+        }
+    }
+
+    /// Sets the annotation color. Raw lines are unchanged.
+    pub fn set_color(&mut self, new_color: AnnotationColor) {
+        match self {
+            Self::Task { color, .. }
+            | Self::Migrated { color, .. }
+            | Self::Scheduled { color, .. }
+            | Self::Event { color, .. }
+            | Self::Note { color, .. } => *color = new_color,
+            Self::Raw(_) => {}
+        }
+    }
+
+    /// Sets the text content. Raw lines are unchanged.
+    pub fn set_text(&mut self, new_text: String) {
+        match self {
+            Self::Task { text, .. }
+            | Self::Migrated { text, .. }
+            | Self::Scheduled { text, .. }
+            | Self::Event { text, .. }
+            | Self::Note { text, .. } => *text = new_text,
+            Self::Raw(_) => {}
+        }
     }
 
     /// Returns the text carried by the bullet.
     pub fn text(&self) -> &str {
         match self {
             Self::Task { text, .. }
-            | Self::Migrated(text)
-            | Self::Scheduled(text)
-            | Self::Event(text)
-            | Self::Note(text)
+            | Self::Migrated { text, .. }
+            | Self::Scheduled { text, .. }
+            | Self::Event { text, .. }
+            | Self::Note { text, .. }
             | Self::Raw(text) => text,
         }
     }
@@ -180,59 +290,78 @@ impl Bullet {
     /// Parses a single line of a journal file.
     pub fn parse(line: &str) -> Self {
         if let Some(text) = strip_marker(line, "- [ ]") {
-            return Self::with_marker(BulletMarker::Task, text);
+            return parse_with_color(BulletMarker::Task, text);
         }
         if let Some(text) = strip_marker(line, "- [x]").or_else(|| strip_marker(line, "- [X]")) {
-            return Self::with_marker(BulletMarker::Completed, text);
+            return parse_with_color(BulletMarker::Completed, text);
         }
         if let Some(text) = strip_marker(line, "- [>]") {
-            return Self::with_marker(BulletMarker::Migrated, text);
+            return parse_with_color(BulletMarker::Migrated, text);
         }
         if let Some(text) = strip_marker(line, "- [<]") {
-            return Self::with_marker(BulletMarker::Scheduled, text);
+            return parse_with_color(BulletMarker::Scheduled, text);
         }
         if let Some(text) = strip_marker(line, "•").or_else(|| strip_marker(line, "·")) {
-            return Self::with_marker(BulletMarker::Task, text);
+            return parse_with_color(BulletMarker::Task, text);
         }
         if let Some(text) = strip_marker(line, "x")
             .or_else(|| strip_marker(line, "X"))
             .or_else(|| strip_marker(line, "×"))
         {
-            return Self::with_marker(BulletMarker::Completed, text);
+            return parse_with_color(BulletMarker::Completed, text);
         }
         if let Some(text) = strip_marker(line, ">") {
-            return Self::with_marker(BulletMarker::Migrated, text);
+            return parse_with_color(BulletMarker::Migrated, text);
         }
         if let Some(text) = strip_marker(line, "<") {
-            return Self::with_marker(BulletMarker::Scheduled, text);
+            return parse_with_color(BulletMarker::Scheduled, text);
         }
         if let Some(text) = strip_marker(line, "o") {
-            return Self::with_marker(BulletMarker::Event, text);
+            return parse_with_color(BulletMarker::Event, text);
         }
         if let Some(text) = strip_marker(line, "-") {
-            return Self::with_marker(BulletMarker::Note, text);
+            return parse_with_color(BulletMarker::Note, text);
         }
         Self::Raw(line.to_owned())
     }
 
     /// Renders the bullet back to its plain-text line.
     pub fn render(&self) -> String {
-        match self {
-            Self::Task {
-                text,
-                completed: true,
-            } => format!("x {text}"),
+        let (marker, text, color) = match self {
             Self::Task {
                 text,
                 completed: false,
-            } => format!("• {text}"),
-            Self::Migrated(text) => format!("> {text}"),
-            Self::Scheduled(text) => format!("< {text}"),
-            Self::Event(text) => format!("o {text}"),
-            Self::Note(text) => format!("- {text}"),
-            Self::Raw(text) => text.clone(),
+                color,
+            } => (BulletMarker::Task, text, *color),
+            Self::Task {
+                text,
+                completed: true,
+                color,
+            } => (BulletMarker::Completed, text, *color),
+            Self::Migrated { text, color } => (BulletMarker::Migrated, text, *color),
+            Self::Scheduled { text, color } => (BulletMarker::Scheduled, text, *color),
+            Self::Event { text, color } => (BulletMarker::Event, text, *color),
+            Self::Note { text, color } => (BulletMarker::Note, text, *color),
+            Self::Raw(text) => return text.clone(),
+        };
+        let prefix = color
+            .tag()
+            .map_or(String::new(), |tag| format!("{{c:{tag}}} "));
+        format!("{} {prefix}{text}", marker.symbol())
+    }
+}
+
+fn parse_with_color(marker: BulletMarker, rest: &str) -> Bullet {
+    if let Some(tagged) = rest.strip_prefix("{c:")
+        && let Some(end) = tagged.find("} ")
+    {
+        let tag = &tagged[..end];
+        if let Some(color) = AnnotationColor::from_tag(tag) {
+            let text = tagged[end + 2..].to_owned();
+            return Bullet::with_marker_and_color(marker, text, color);
         }
     }
+    Bullet::with_marker(marker, rest)
 }
 
 fn strip_marker<'a>(line: &'a str, marker: &str) -> Option<&'a str> {

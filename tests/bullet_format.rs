@@ -1,4 +1,4 @@
-use urust_journal::journal::{Bullet, BulletMarker};
+use urust_journal::journal::{AnnotationColor, Bullet, BulletMarker};
 
 #[test]
 fn parses_every_bullet_kind() {
@@ -96,9 +96,32 @@ fn raw_lines_ignore_marker_changes() {
     assert_eq!(bullet, Bullet::Raw("# Heading".to_owned()));
 }
 
+#[test]
+fn parses_renders_and_preserves_annotation_colors() {
+    let bullet = Bullet::parse("• {c:blue} texto");
+    assert_eq!(bullet.color(), AnnotationColor::DesaturatedBlue);
+    assert_eq!(bullet.text(), "texto");
+    assert_eq!(bullet.render(), "• {c:blue} texto");
+
+    let mut bullet = Bullet::note("nota");
+    bullet.set_color(AnnotationColor::EmeraldGreen);
+    assert_eq!(bullet.render(), "- {c:emerald} nota");
+    bullet.set_marker(BulletMarker::Completed);
+    assert_eq!(bullet.color(), AnnotationColor::EmeraldGreen);
+    assert_eq!(bullet.render(), "x {c:emerald} nota");
+}
+
+#[test]
+fn unknown_color_tag_kept_as_plain_text() {
+    let bullet = Bullet::parse("• {c:purple} texto");
+    assert_eq!(bullet.color(), AnnotationColor::Black);
+    assert_eq!(bullet.text(), "{c:purple} texto");
+}
+
 fn completed(text: &str) -> Bullet {
     Bullet::Task {
         text: text.to_owned(),
         completed: true,
+        color: AnnotationColor::Black,
     }
 }

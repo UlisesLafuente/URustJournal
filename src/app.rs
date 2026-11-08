@@ -2,7 +2,9 @@
 
 use eframe::egui;
 
-use crate::journal::{Bullet, BulletMarker, Journal, JournalName, JournalStorage, SectionKind};
+use crate::journal::{
+    AnnotationColor, Bullet, BulletMarker, Journal, JournalName, JournalStorage, SectionKind,
+};
 
 const CAVEAT: &str = "caveat";
 const SCRIPT_TEXT_STYLE: &str = "Script";
@@ -18,6 +20,18 @@ const INK: egui::Color32 = egui::Color32::from_rgb(0x3B, 0x35, 0x2F);
 const ERROR_INK: egui::Color32 = egui::Color32::from_rgb(0x8A, 0x3B, 0x36);
 const SUCCESS_INK: egui::Color32 = egui::Color32::from_rgb(0x3E, 0x5C, 0x46);
 const PENDING_INK: egui::Color32 = egui::Color32::from_rgb(0x8A, 0x6D, 0x2F);
+const DESATURATED_BLUE: egui::Color32 = egui::Color32::from_rgb(0x6E, 0x86, 0xA8);
+const EMERALD_GREEN: egui::Color32 = egui::Color32::from_rgb(0x3E, 0x8A, 0x63);
+const RUST_RED: egui::Color32 = egui::Color32::from_rgb(0xA6, 0x58, 0x4E);
+
+fn annotation_color(color: AnnotationColor) -> egui::Color32 {
+    match color {
+        AnnotationColor::Black => INK,
+        AnnotationColor::DesaturatedBlue => DESATURATED_BLUE,
+        AnnotationColor::EmeraldGreen => EMERALD_GREEN,
+        AnnotationColor::RustRed => RUST_RED,
+    }
+}
 
 fn script_family() -> egui::FontFamily {
     egui::FontFamily::Name("script".into())
@@ -176,6 +190,7 @@ pub struct UrustJournalApp {
     show_create_bar: bool,
     show_sections_pages: bool,
     show_annotations: bool,
+    editing_bullet: Option<(usize, String)>,
 }
 
 impl UrustJournalApp {
@@ -203,6 +218,7 @@ impl UrustJournalApp {
             show_create_bar: true,
             show_sections_pages: true,
             show_annotations: true,
+            editing_bullet: None,
         };
         app.refresh();
         app
@@ -596,6 +612,9 @@ impl UrustJournalApp {
 
         let mut marker_change = None;
         let mut remove_index = None;
+        let mut color_change = None;
+        let mut text_change = None;
+        let mut edit_start = None;
 
         if show_annotations {
             let bullets_height = (ui.available_height() - 60.0).max(80.0);
@@ -620,7 +639,9 @@ impl UrustJournalApp {
                             if page.is_empty() {
                                 ui.weak("Página vacía. Añade una tarea, nota o evento.");
                             }
+                            let editing_index = self.editing_bullet.as_ref().map(|(i, _)| *i);
                             for (index, bullet) in page.bullets().iter().enumerate() {
+                                let is_editing = editing_index == Some(index);
                                 let row = ui.horizontal(|ui| {
                                     match bullet {
                                         Bullet::Raw(text) => {
@@ -660,18 +681,81 @@ impl UrustJournalApp {
                                                 });
                                             }
 
-                                            let mut rich = egui::RichText::new(bullet.text())
-                                                .text_style(script_text_style());
-                                            if bullet.marker() == Some(BulletMarker::Completed) {
-                                                rich = rich.strikethrough().weak();
+                                            if is_editing {
+                                                if let Some((_, ref mut edit_text)) =
+                                                    self.editing_bullet
+                                                {
+                                                    let response = ui.add(
+                                                        egui::TextEdit::singleline(edit_text)
+                                                            .font(script_font(SCRIPT_SIZE))
+                                                            .desired_width(280.0),
+                                                    );
+                                                    let submitted = response.lost_focus()
+                                                        && ui.input(|i| {
+                                                            i.key_pressed(egui::Key::Enter)
+                                                        });
+                                                    if submitted
+                                                        || ui.input(|i| {
+                                                            i.key_pressed(egui::Key::Escape)
+                                                        })
+                                                    {
+                                                        if submitted {
+                                                            text_change =
+                                                                Some((index, edit_text.clone()));
+                                                        }
+                                                        self.editing_bullet = None;
+                                                    }
+                                                }
+                                            } else {
+                                                let mut rich = egui::RichText::new(bullet.text())
+                                                    .text_style(script_text_style())
+                                                    .color(annotation_color(bullet.color()));
+                                                if bullet.marker() == Some(BulletMarker::Completed)
+                                                {
+                                                    rich = rich.strikethrough().weak();
+                                                }
+                                                let response = ui
+                                                    .add(
+                                                        egui::Label::new(rich)
+                                                            .sense(egui::Sense::click()),
+                                                    )
+                                                    .on_hover_text("Clic para opciones");
+                                                egui::Popup::menu(&response).show(|ui| {
+                                                    if ui.button("Editar texto").clicked() {
+                                                        edit_start =
+                                                            Some((index, bullet.text().to_owned()));
+                                                        ui.close();
+                                                    }
+                                                    ui.separator();
+                                                    ui.label("Color del texto:");
+                                                    for color in AnnotationColor::ALL {
+                                                        let selected = color == bullet.color();
+                                                        let label =
+                                                            egui::RichText::new(color.label())
+                                                                .color(annotation_color(color));
+                                                        if ui
+                                                            .selectable_label(selected, label)
+                                                            .clicked()
+                                                        {
+                                                            color_change = Some((index, color));
+                                                            ui.close();
+                                                        }
+                                                    }
+                                                });
                                             }
-                                            ui.label(rich);
                                         }
                                     }
                                     ui.with_layout(
                                         egui::Layout::right_to_left(egui::Align::Center),
                                         |ui| {
-                                            if ui.small_button("x").clicked() {
+                                            if is_editing {
+                                                if ui.small_button("✓").clicked() {
+                                                    if let Some((_, ref t)) = self.editing_bullet {
+                                                        text_change = Some((index, t.clone()));
+                                                    }
+                                                    self.editing_bullet = None;
+                                                }
+                                            } else if ui.small_button("x").clicked() {
                                                 remove_index = Some(index);
                                             }
                                         },
@@ -694,6 +778,10 @@ impl UrustJournalApp {
                 });
         }
 
+        if let Some((index, text)) = edit_start {
+            self.editing_bullet = Some((index, text));
+        }
+
         if let Some((index, marker)) = marker_change {
             if let Some(page) = self
                 .current
@@ -702,6 +790,28 @@ impl UrustJournalApp {
                 && let Some(bullet) = page.bullet_mut(index)
             {
                 bullet.set_marker(marker);
+            }
+            self.dirty = true;
+        }
+        if let Some((index, color)) = color_change {
+            if let Some(page) = self
+                .current
+                .as_mut()
+                .and_then(|journal| journal.page_mut(kind, page_index))
+                && let Some(bullet) = page.bullet_mut(index)
+            {
+                bullet.set_color(color);
+            }
+            self.dirty = true;
+        }
+        if let Some((index, text)) = text_change {
+            if let Some(page) = self
+                .current
+                .as_mut()
+                .and_then(|journal| journal.page_mut(kind, page_index))
+                && let Some(bullet) = page.bullet_mut(index)
+            {
+                bullet.set_text(text);
             }
             self.dirty = true;
         }
@@ -714,6 +824,13 @@ impl UrustJournalApp {
                 page.remove(index);
             }
             self.dirty = true;
+            if self
+                .editing_bullet
+                .as_ref()
+                .is_some_and(|(i, _)| *i == index)
+            {
+                self.editing_bullet = None;
+            }
         }
 
         ui.separator();

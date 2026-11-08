@@ -7,7 +7,7 @@ mod page;
 mod section;
 mod storage;
 
-pub use bullet::{Bullet, BulletMarker};
+pub use bullet::{AnnotationColor, Bullet, BulletMarker};
 pub use model::Journal;
 pub use name::{JournalName, MAX_NAME_LEN};
 pub use page::Page;
