@@ -830,7 +830,6 @@ impl UrustJournalApp {
         let mut color_change = None;
         let mut text_change = None;
         let mut edit_start = None;
-        let mut move_bullet = None;
 
         if show_annotations {
             let bullets_height = (ui.available_height() - 60.0).max(80.0);
@@ -857,134 +856,141 @@ impl UrustJournalApp {
                                 ui.weak("Página vacía. Añade una tarea, nota o evento.");
                             }
                             let editing_index = self.editing_bullet.as_ref().map(|(i, _)| *i);
-                            let dnd_frame = egui::Frame::NONE;
                             for (index, bullet) in page.bullets().iter().enumerate() {
                                 let is_editing = editing_index == Some(index);
-                                let (drop_inner, dropped) = ui.dnd_drop_zone::<usize, _>(dnd_frame, |ui| {
-                                    ui.dnd_drag_source(
-                                        egui::Id::new(("bullet_dnd", kind as u8, page_index, index)),
-                                        index,
-                                        |ui| {
-                                            ui.horizontal(|ui| {
-                                                match bullet {
-                                                    Bullet::Raw(text) => {
-                                                        ui.monospace(text);
+                                let row = ui.horizontal(|ui| {
+                                    match bullet {
+                                        Bullet::Raw(text) => {
+                                            ui.monospace(text);
+                                        }
+                                        _ => {
+                                            if let Some(current_marker) = bullet.marker() {
+                                                let response = ui
+                                                    .add(
+                                                        egui::Label::new(
+                                                            egui::RichText::new(
+                                                                current_marker.symbol(),
+                                                            )
+                                                            .size(MARKER_SIZE)
+                                                            .color(self.theme.palette().ink),
+                                                        )
+                                                        .sense(egui::Sense::click()),
+                                                    )
+                                                    .on_hover_text("Cambiar marcador");
+
+                                                egui::Popup::menu(&response).show(|ui| {
+                                                    for option in BulletMarker::ALL {
+                                                        let selected = option == current_marker;
+                                                        let label = format!(
+                                                            "{}  {}",
+                                                            option.symbol(),
+                                                            option.label()
+                                                        );
+                                                        if ui
+                                                            .selectable_label(selected, label)
+                                                            .clicked()
+                                                        {
+                                                            marker_change = Some((index, option));
+                                                            ui.close();
+                                                        }
                                                     }
-                                                    _ => {
-                                                        if let Some(current_marker) = bullet.marker() {
-                                                            let response = ui
-                                                                .add(
-                                                                    egui::Label::new(
-                                                                        egui::RichText::new(
-                                                                            current_marker.symbol(),
-                                                                        )
-                                                                        .size(MARKER_SIZE)
-                                                                        .color(self.theme.palette().ink),
-                                                                    )
-                                                                    .sense(egui::Sense::click()),
-                                                                )
-                                                                .on_hover_text("Cambiar marcador");
+                                                });
+                                            }
 
-                                                            egui::Popup::menu(&response).show(|ui| {
-                                                                for option in BulletMarker::ALL {
-                                                                    let selected = option == current_marker;
-                                                                    let label = format!(
-                                                                        "{}  {}",
-                                                                        option.symbol(),
-                                                                        option.label()
-                                                                    );
-                                                                    if ui
-                                                                        .selectable_label(selected, label)
-                                                                        .clicked()
-                                                                    {
-                                                                        marker_change = Some((index, option));
-                                                                        ui.close();
-                                                                    }
-                                                                }
-                                                            });
+                                            if is_editing {
+                                                if let Some((_, ref mut edit_text)) =
+                                                    self.editing_bullet
+                                                {
+                                                    let response = ui.add(
+                                                        egui::TextEdit::singleline(edit_text)
+                                                            .font(script_font(SCRIPT_SIZE))
+                                                            .desired_width(280.0),
+                                                    );
+                                                    let submitted = response.lost_focus()
+                                                        && ui.input(|i| {
+                                                            i.key_pressed(egui::Key::Enter)
+                                                        });
+                                                    if submitted
+                                                        || ui.input(|i| {
+                                                            i.key_pressed(egui::Key::Escape)
+                                                        })
+                                                    {
+                                                        if submitted {
+                                                            text_change =
+                                                                Some((index, edit_text.clone()));
                                                         }
-
-                                                        if is_editing {
-                                                            if let Some((_, ref mut edit_text)) =
-                                                                self.editing_bullet
-                                                            {
-                                                                let response = ui.add(
-                                                                    egui::TextEdit::singleline(edit_text)
-                                                                        .font(script_font(SCRIPT_SIZE))
-                                                                        .desired_width(280.0),
-                                                                );
-                                                                let submitted = response.lost_focus()
-                                                                    && ui.input(|i| i.key_pressed(egui::Key::Enter));
-                                                                if submitted || ui.input(|i| i.key_pressed(egui::Key::Escape)) {
-                                                                    if submitted {
-                                                                        text_change = Some((index, edit_text.clone()));
-                                                                    }
-                                                                    self.editing_bullet = None;
-                                                                }
-                                                            }
-                                                        } else {
-                                                            let mut rich = egui::RichText::new(bullet.text())
-                                                                .text_style(script_text_style())
-                                                                .color(annotation_color(bullet.color(), self.theme));
-                                                            if bullet.marker() == Some(BulletMarker::Completed) {
-                                                                rich = rich.strikethrough().weak();
-                                                            }
-                                                            let response = ui
-                                                                .add(
-                                                                    egui::Label::new(rich)
-                                                                        .sense(egui::Sense::click_and_drag()),
-                                                                )
-                                                                .on_hover_text("Clic derecho para opciones · Arrastrar para mover");
-                                                            egui::Popup::context_menu(&response).show(|ui| {
-                                                                if ui.button("Editar texto").clicked() {
-                                                                    edit_start =
-                                                                        Some((index, bullet.text().to_owned()));
-                                                                    ui.close();
-                                                                }
-                                                                ui.separator();
-                                                                ui.label("Color del texto:");
-                                                                for color in AnnotationColor::ALL {
-                                                                    let selected = color == bullet.color();
-                                                                    let label = egui::RichText::new(color.label())
-                                                                        .color(annotation_color(color, self.theme));
-                                                                    if ui.selectable_label(selected, label).clicked() {
-                                                                        color_change = Some((index, color));
-                                                                        ui.close();
-                                                                    }
-                                                                }
-                                                            });
-                                                        }
+                                                        self.editing_bullet = None;
                                                     }
                                                 }
-                                                ui.with_layout(
-                                                    egui::Layout::right_to_left(egui::Align::Center),
-                                                    |ui| {
-                                                        if is_editing {
-                                                            if ui.small_button("✓").clicked() {
-                                                                if let Some((_, ref t)) = self.editing_bullet {
-                                                                    text_change = Some((index, t.clone()));
-                                                                }
-                                                                self.editing_bullet = None;
-                                                            }
-                                                        } else if ui.small_button("x").clicked() {
-                                                            remove_index = Some(index);
+                                            } else {
+                                                let mut rich = egui::RichText::new(bullet.text())
+                                                    .text_style(script_text_style())
+                                                    .color(annotation_color(
+                                                        bullet.color(),
+                                                        self.theme,
+                                                    ));
+                                                if bullet.marker() == Some(BulletMarker::Completed)
+                                                {
+                                                    rich = rich.strikethrough().weak();
+                                                }
+                                                let response = ui
+                                                    .add(
+                                                        egui::Label::new(rich)
+                                                            .sense(egui::Sense::click()),
+                                                    )
+                                                    .on_hover_text("Clic para opciones");
+                                                egui::Popup::menu(&response).show(|ui| {
+                                                    if ui.button("Editar texto").clicked() {
+                                                        edit_start =
+                                                            Some((index, bullet.text().to_owned()));
+                                                        ui.close();
+                                                    }
+                                                    ui.separator();
+                                                    ui.label("Color del texto:");
+                                                    for color in AnnotationColor::ALL {
+                                                        let selected = color == bullet.color();
+                                                        let label =
+                                                            egui::RichText::new(color.label())
+                                                                .color(annotation_color(
+                                                                    color, self.theme,
+                                                                ));
+                                                        if ui
+                                                            .selectable_label(selected, label)
+                                                            .clicked()
+                                                        {
+                                                            color_change = Some((index, color));
+                                                            ui.close();
                                                         }
-                                                    },
-                                                );
-                                            }).response.rect
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    }
+                                    ui.with_layout(
+                                        egui::Layout::right_to_left(egui::Align::Center),
+                                        |ui| {
+                                            if is_editing {
+                                                if ui.small_button("✓").clicked() {
+                                                    if let Some((_, ref t)) = self.editing_bullet {
+                                                        text_change = Some((index, t.clone()));
+                                                    }
+                                                    self.editing_bullet = None;
+                                                }
+                                            } else if ui.small_button("x").clicked() {
+                                                remove_index = Some(index);
+                                            }
                                         },
-                                    ).inner
+                                    );
                                 });
-                                if let Some(from) = dropped {
-                                    move_bullet = Some((*from, index));
-                                }
-                                let row_rect = drop_inner.inner;
-                                let drop_rect = drop_inner.response.rect;
-                                let line_y = row_rect.bottom().max(drop_rect.bottom()) + 3.0;
-                                let line_left = drop_rect.left().min(row_rect.left());
+
+                                let line_y = row.response.rect.bottom() + 3.0;
+                                let line_left = row.response.rect.left();
                                 let line_right = ui.max_rect().right();
                                 ui.painter().line_segment(
-                                    [egui::pos2(line_left, line_y), egui::pos2(line_right, line_y)],
+                                    [
+                                        egui::pos2(line_left, line_y),
+                                        egui::pos2(line_right, line_y),
+                                    ],
                                     egui::Stroke::new(1.0, self.theme.palette().accent),
                                 );
                                 ui.add_space(3.0);
@@ -995,16 +1001,6 @@ impl UrustJournalApp {
 
         if let Some((index, text)) = edit_start {
             self.editing_bullet = Some((index, text));
-        }
-        if let Some((from, to)) = move_bullet
-            && let Some(page) = self
-                .current
-                .as_mut()
-                .and_then(|journal| journal.page_mut(kind, page_index))
-            && page.move_bullet(from, to)
-        {
-            self.dirty = true;
-            self.editing_bullet = None;
         }
 
         if let Some((index, marker)) = marker_change {
