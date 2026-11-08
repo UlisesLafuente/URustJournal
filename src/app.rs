@@ -12,11 +12,6 @@ const SCRIPT_SIZE: f32 = 16.0;
 const SCRIPT_HEADING_SIZE: f32 = 24.0;
 const MARKER_SIZE: f32 = 16.0;
 
-const BONE: egui::Color32 = egui::Color32::from_rgb(0xEA, 0xE6, 0xDF);
-const ASH: egui::Color32 = egui::Color32::from_rgb(0xD5, 0xD6, 0xD2);
-const OAT: egui::Color32 = egui::Color32::from_rgb(0xE2, 0xD9, 0xC5);
-const TAUPE: egui::Color32 = egui::Color32::from_rgb(0xCF, 0xC2, 0xB4);
-const INK: egui::Color32 = egui::Color32::from_rgb(0x3B, 0x35, 0x2F);
 const ERROR_INK: egui::Color32 = egui::Color32::from_rgb(0x8A, 0x3B, 0x36);
 const SUCCESS_INK: egui::Color32 = egui::Color32::from_rgb(0x3E, 0x5C, 0x46);
 const PENDING_INK: egui::Color32 = egui::Color32::from_rgb(0x8A, 0x6D, 0x2F);
@@ -24,13 +19,88 @@ const DESATURATED_BLUE: egui::Color32 = egui::Color32::from_rgb(0x6E, 0x86, 0xA8
 const EMERALD_GREEN: egui::Color32 = egui::Color32::from_rgb(0x3E, 0x8A, 0x63);
 const RUST_RED: egui::Color32 = egui::Color32::from_rgb(0xA6, 0x58, 0x4E);
 
-fn annotation_color(color: AnnotationColor) -> egui::Color32 {
+fn annotation_color(color: AnnotationColor, theme: Theme) -> egui::Color32 {
+    let ink = theme.palette().ink;
     match color {
-        AnnotationColor::Black => INK,
+        AnnotationColor::Black => ink,
         AnnotationColor::DesaturatedBlue => DESATURATED_BLUE,
         AnnotationColor::EmeraldGreen => EMERALD_GREEN,
         AnnotationColor::RustRed => RUST_RED,
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum Theme {
+    #[default]
+    PapelAmarillento,
+    AzulNordico,
+    BosqueAntiguo,
+    SuenoVioleta,
+}
+
+impl Theme {
+    const ALL: [Self; 4] = [
+        Self::PapelAmarillento,
+        Self::AzulNordico,
+        Self::BosqueAntiguo,
+        Self::SuenoVioleta,
+    ];
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::PapelAmarillento => "Papel amarillento",
+            Self::AzulNordico => "Azul nórdico",
+            Self::BosqueAntiguo => "Bosque antiguo",
+            Self::SuenoVioleta => "Sueño violeta",
+        }
+    }
+
+    fn palette(self) -> ThemePalette {
+        match self {
+            Self::PapelAmarillento => ThemePalette {
+                bg: egui::Color32::from_rgb(0xEA, 0xE6, 0xDF),
+                bg_alt: egui::Color32::from_rgb(0xD5, 0xD6, 0xD2),
+                accent_soft: egui::Color32::from_rgb(0xE2, 0xD9, 0xC5),
+                accent: egui::Color32::from_rgb(0xCF, 0xC2, 0xB4),
+                ink: egui::Color32::from_rgb(0x3B, 0x35, 0x2F),
+                dark_mode: false,
+            },
+            Self::AzulNordico => ThemePalette {
+                bg: egui::Color32::from_rgb(0x07, 0x11, 0x1F),
+                bg_alt: egui::Color32::from_rgb(0x0B, 0x3D, 0x6E),
+                accent_soft: egui::Color32::from_rgb(0x1D, 0x8A, 0xCB),
+                accent: egui::Color32::from_rgb(0x60, 0xD6, 0xFF),
+                ink: egui::Color32::from_rgb(0xB8, 0xF3, 0xFF),
+                dark_mode: true,
+            },
+            Self::BosqueAntiguo => ThemePalette {
+                bg: egui::Color32::from_rgb(0x08, 0x14, 0x0F),
+                bg_alt: egui::Color32::from_rgb(0x1E, 0x4D, 0x35),
+                accent_soft: egui::Color32::from_rgb(0x3F, 0xA8, 0x6D),
+                accent: egui::Color32::from_rgb(0x9A, 0xD9, 0x8B),
+                ink: egui::Color32::from_rgb(0xE1, 0xF0, 0xB5),
+                dark_mode: true,
+            },
+            Self::SuenoVioleta => ThemePalette {
+                bg: egui::Color32::from_rgb(0x0E, 0x07, 0x19),
+                bg_alt: egui::Color32::from_rgb(0x5A, 0x2C, 0xFF),
+                accent_soft: egui::Color32::from_rgb(0x9B, 0x5C, 0xFF),
+                accent: egui::Color32::from_rgb(0xF2, 0x5C, 0xFF),
+                ink: egui::Color32::from_rgb(0x58, 0xF2, 0xD7),
+                dark_mode: true,
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ThemePalette {
+    bg: egui::Color32,
+    bg_alt: egui::Color32,
+    accent_soft: egui::Color32,
+    accent: egui::Color32,
+    ink: egui::Color32,
+    dark_mode: bool,
 }
 
 fn script_family() -> egui::FontFamily {
@@ -71,34 +141,35 @@ fn install_fonts(ctx: &egui::Context) {
     ctx.set_fonts(fonts);
 }
 
-fn configure_style(ctx: &egui::Context) {
+fn configure_style(ctx: &egui::Context, theme: Theme) {
+    let p = theme.palette();
     let mut style = (*ctx.style()).clone();
     style
         .text_styles
         .insert(script_text_style(), script_font(SCRIPT_SIZE));
     let visuals = &mut style.visuals;
 
-    visuals.dark_mode = false;
-    visuals.override_text_color = Some(INK);
-    visuals.panel_fill = BONE;
-    visuals.window_fill = BONE;
-    visuals.faint_bg_color = ASH;
-    visuals.extreme_bg_color = ASH;
-    visuals.text_edit_bg_color = Some(BONE);
-    visuals.code_bg_color = ASH;
-    visuals.selection.bg_fill = OAT;
-    visuals.selection.stroke = egui::Stroke::new(1.0, INK);
-    visuals.hyperlink_color = INK;
-    visuals.window_stroke = egui::Stroke::new(1.0, TAUPE);
+    visuals.dark_mode = p.dark_mode;
+    visuals.override_text_color = Some(p.ink);
+    visuals.panel_fill = p.bg;
+    visuals.window_fill = p.bg;
+    visuals.faint_bg_color = p.bg_alt;
+    visuals.extreme_bg_color = p.bg_alt;
+    visuals.text_edit_bg_color = Some(p.bg);
+    visuals.code_bg_color = p.bg_alt;
+    visuals.selection.bg_fill = p.accent_soft;
+    visuals.selection.stroke = egui::Stroke::new(1.0, p.ink);
+    visuals.hyperlink_color = p.accent;
+    visuals.window_stroke = egui::Stroke::new(1.0, p.accent);
     visuals.window_corner_radius = egui::CornerRadius::same(6);
     visuals.menu_corner_radius = egui::CornerRadius::same(6);
-    visuals.text_cursor.stroke = egui::Stroke::new(1.5, INK);
+    visuals.text_cursor.stroke = egui::Stroke::new(1.5, p.ink);
 
-    style_widget(&mut visuals.widgets.noninteractive, BONE, TAUPE, INK);
-    style_widget(&mut visuals.widgets.inactive, ASH, TAUPE, INK);
-    style_widget(&mut visuals.widgets.hovered, OAT, TAUPE, INK);
-    style_widget(&mut visuals.widgets.active, TAUPE, INK, INK);
-    style_widget(&mut visuals.widgets.open, OAT, TAUPE, INK);
+    style_widget(&mut visuals.widgets.noninteractive, p.bg, p.accent, p.ink);
+    style_widget(&mut visuals.widgets.inactive, p.bg_alt, p.accent, p.ink);
+    style_widget(&mut visuals.widgets.hovered, p.accent_soft, p.accent, p.ink);
+    style_widget(&mut visuals.widgets.active, p.accent, p.bg, p.bg);
+    style_widget(&mut visuals.widgets.open, p.accent_soft, p.accent, p.ink);
 
     style.spacing.item_spacing = egui::vec2(8.0, 6.0);
     style.spacing.button_padding = egui::vec2(8.0, 4.0);
@@ -118,8 +189,8 @@ fn style_widget(
     widget.fg_stroke = egui::Stroke::new(1.0, text);
 }
 
-fn hint(text: &str) -> egui::RichText {
-    egui::RichText::new(text).color(TAUPE)
+fn hint(text: &str, theme: Theme) -> egui::RichText {
+    egui::RichText::new(text).color(theme.palette().accent)
 }
 
 fn license_block(ui: &mut egui::Ui, text: &str, monospace: bool) {
@@ -134,14 +205,20 @@ fn license_block(ui: &mut egui::Ui, text: &str, monospace: bool) {
         });
 }
 
-fn collapse_arrow(ui: &mut egui::Ui, expanded: &mut bool, open_symbol: &str, closed_symbol: &str) {
+fn collapse_arrow(
+    ui: &mut egui::Ui,
+    expanded: &mut bool,
+    open_symbol: &str,
+    closed_symbol: &str,
+    color: egui::Color32,
+) {
     let symbol = if *expanded {
         open_symbol
     } else {
         closed_symbol
     };
     if ui
-        .add(egui::Button::new(egui::RichText::new(symbol).color(TAUPE)).frame(false))
+        .add(egui::Button::new(egui::RichText::new(symbol).color(color)).frame(false))
         .clicked()
     {
         *expanded = !*expanded;
@@ -191,13 +268,15 @@ pub struct UrustJournalApp {
     show_sections_pages: bool,
     show_annotations: bool,
     editing_bullet: Option<(usize, String)>,
+    theme: Theme,
 }
 
 impl UrustJournalApp {
     /// Builds the application and loads the journal list.
     pub fn new(cc: &eframe::CreationContext<'_>, storage: JournalStorage) -> Self {
+        let theme = Theme::default();
         install_fonts(&cc.egui_ctx);
-        configure_style(&cc.egui_ctx);
+        configure_style(&cc.egui_ctx, theme);
 
         let mut app = Self {
             storage,
@@ -219,6 +298,7 @@ impl UrustJournalApp {
             show_sections_pages: true,
             show_annotations: true,
             editing_bullet: None,
+            theme,
         };
         app.refresh();
         app
@@ -434,9 +514,10 @@ impl UrustJournalApp {
         self.dirty = true;
     }
 
-    fn top_bar(&mut self, ui: &mut egui::Ui) {
+    fn top_bar(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        let arrow_color = self.theme.palette().accent;
         ui.horizontal(|ui| {
-            collapse_arrow(ui, &mut self.show_create_bar, "▲", "▼");
+            collapse_arrow(ui, &mut self.show_create_bar, "▲", "▼", arrow_color);
             ui.heading("UrustJournal");
             if self.show_create_bar {
                 ui.separator();
@@ -444,7 +525,7 @@ impl UrustJournalApp {
                 let response = ui.add(
                     egui::TextEdit::singleline(&mut self.new_journal_name)
                         .font(script_font(SCRIPT_SIZE))
-                        .hint_text(hint("mi_journal"))
+                        .hint_text(hint("mi_journal", self.theme))
                         .desired_width(180.0),
                 );
                 let submitted =
@@ -456,6 +537,24 @@ impl UrustJournalApp {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui.button("Acerca de").clicked() {
                     self.show_about = true;
+                }
+                ui.separator();
+                ui.label("Tema:");
+                let mut changed = false;
+                egui::ComboBox::from_id_salt("theme_select")
+                    .selected_text(self.theme.label())
+                    .show_ui(ui, |ui| {
+                        for theme in Theme::ALL {
+                            if ui
+                                .selectable_value(&mut self.theme, theme, theme.label())
+                                .changed()
+                            {
+                                changed = true;
+                            }
+                        }
+                    });
+                if changed {
+                    configure_style(ctx, self.theme);
                 }
             });
         });
@@ -508,7 +607,7 @@ impl UrustJournalApp {
                 egui::TextEdit::singleline(&mut self.rename_name)
                     .font(script_font(SCRIPT_SIZE))
                     .desired_width(160.0)
-                    .hint_text(hint("nuevo_nombre")),
+                    .hint_text(hint("nuevo_nombre", self.theme)),
             );
             if ui.button("Renombrar").clicked() {
                 self.rename_selected();
@@ -573,7 +672,7 @@ impl UrustJournalApp {
             let response = ui.add(
                 egui::TextEdit::singleline(&mut self.new_page_title)
                     .font(script_font(SCRIPT_SIZE))
-                    .hint_text(hint("2026-11-08"))
+                    .hint_text(hint("2026-11-08", self.theme))
                     .desired_width(180.0),
             );
             let submitted =
@@ -619,9 +718,10 @@ impl UrustJournalApp {
         if show_annotations {
             let bullets_height = (ui.available_height() - 60.0).max(80.0);
 
+            let p = self.theme.palette();
             egui::Frame::new()
-                .fill(BONE)
-                .stroke(egui::Stroke::new(1.5, TAUPE))
+                .fill(p.bg)
+                .stroke(egui::Stroke::new(1.5, p.accent))
                 .corner_radius(egui::CornerRadius::same(8))
                 .inner_margin(egui::Margin::same(10))
                 .show(ui, |ui| {
@@ -656,7 +756,7 @@ impl UrustJournalApp {
                                                                 current_marker.symbol(),
                                                             )
                                                             .size(MARKER_SIZE)
-                                                            .color(INK),
+                                                            .color(self.theme.palette().ink),
                                                         )
                                                         .sense(egui::Sense::click()),
                                                     )
@@ -709,7 +809,10 @@ impl UrustJournalApp {
                                             } else {
                                                 let mut rich = egui::RichText::new(bullet.text())
                                                     .text_style(script_text_style())
-                                                    .color(annotation_color(bullet.color()));
+                                                    .color(annotation_color(
+                                                        bullet.color(),
+                                                        self.theme,
+                                                    ));
                                                 if bullet.marker() == Some(BulletMarker::Completed)
                                                 {
                                                     rich = rich.strikethrough().weak();
@@ -732,7 +835,9 @@ impl UrustJournalApp {
                                                         let selected = color == bullet.color();
                                                         let label =
                                                             egui::RichText::new(color.label())
-                                                                .color(annotation_color(color));
+                                                                .color(annotation_color(
+                                                                    color, self.theme,
+                                                                ));
                                                         if ui
                                                             .selectable_label(selected, label)
                                                             .clicked()
@@ -770,7 +875,7 @@ impl UrustJournalApp {
                                         egui::pos2(line_left, line_y),
                                         egui::pos2(line_right, line_y),
                                     ],
-                                    egui::Stroke::new(1.0, TAUPE),
+                                    egui::Stroke::new(1.0, self.theme.palette().accent),
                                 );
                                 ui.add_space(3.0);
                             }
@@ -854,7 +959,7 @@ impl UrustJournalApp {
             let response = ui.add(
                 egui::TextEdit::singleline(&mut self.new_bullet)
                     .font(script_font(SCRIPT_SIZE))
-                    .hint_text(hint("Escribe aquí…"))
+                    .hint_text(hint("Escribe aquí…", self.theme))
                     .desired_width(300.0),
             );
             let submitted =
@@ -874,7 +979,13 @@ impl UrustJournalApp {
 
         ui.separator();
         ui.horizontal(|ui| {
-            collapse_arrow(ui, &mut self.show_sections_pages, "▲", "▼");
+            collapse_arrow(
+                ui,
+                &mut self.show_sections_pages,
+                "▲",
+                "▼",
+                self.theme.palette().accent,
+            );
             ui.label("Secciones y páginas");
         });
         if self.show_sections_pages {
@@ -884,7 +995,13 @@ impl UrustJournalApp {
 
         ui.separator();
         ui.horizontal(|ui| {
-            collapse_arrow(ui, &mut self.show_annotations, "▲", "▼");
+            collapse_arrow(
+                ui,
+                &mut self.show_annotations,
+                "▲",
+                "▼",
+                self.theme.palette().accent,
+            );
             ui.label("Anotaciones");
         });
         self.page_editor(ui, self.show_annotations);
@@ -935,7 +1052,7 @@ impl eframe::App for UrustJournalApp {
             self.save_journal();
         }
 
-        egui::TopBottomPanel::top("top_bar").show(ctx, |ui| self.top_bar(ui));
+        egui::TopBottomPanel::top("top_bar").show(ctx, |ui| self.top_bar(ui, ctx));
 
         if self.show_journal_list {
             egui::SidePanel::left("journal_list")
@@ -945,7 +1062,13 @@ impl eframe::App for UrustJournalApp {
                     ui.horizontal(|ui| {
                         ui.heading("Journals");
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            collapse_arrow(ui, &mut self.show_journal_list, "◀", "▶");
+                            collapse_arrow(
+                                ui,
+                                &mut self.show_journal_list,
+                                "◀",
+                                "▶",
+                                self.theme.palette().accent,
+                            );
                         });
                     });
                     ui.separator();
@@ -958,7 +1081,13 @@ impl eframe::App for UrustJournalApp {
                 .show(ctx, |ui| {
                     ui.vertical_centered(|ui| {
                         ui.add_space(6.0);
-                        collapse_arrow(ui, &mut self.show_journal_list, "◀", "▶");
+                        collapse_arrow(
+                            ui,
+                            &mut self.show_journal_list,
+                            "◀",
+                            "▶",
+                            self.theme.palette().accent,
+                        );
                     });
                 });
         }
@@ -985,7 +1114,7 @@ mod tests {
     fn script_font_loads_and_lays_out_text() {
         let ctx = egui::Context::default();
         install_fonts(&ctx);
-        configure_style(&ctx);
+        configure_style(&ctx, Theme::default());
 
         let _ = ctx.run(egui::RawInput::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
