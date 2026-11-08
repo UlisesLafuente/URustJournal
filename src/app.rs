@@ -856,8 +856,14 @@ impl UrustJournalApp {
                                 ui.weak("Página vacía. Añade una tarea, nota o evento.");
                             }
                             let editing_index = self.editing_bullet.as_ref().map(|(i, _)| *i);
+                            let bullet_count = page.bullets().len();
+                            let mut row_rects: Vec<(usize, egui::Rect)> =
+                                Vec::with_capacity(bullet_count);
                             for (index, bullet) in page.bullets().iter().enumerate() {
                                 let is_editing = editing_index == Some(index);
+                                let drag_id =
+                                    egui::Id::new(("bullet_drag", kind as u8, page_index, index));
+                                let dragging = ui.ctx().is_being_dragged(drag_id);
                                 let row = ui.horizontal(|ui| {
                                     match bullet {
                                         Bullet::Raw(text) => {
@@ -933,12 +939,25 @@ impl UrustJournalApp {
                                                 {
                                                     rich = rich.strikethrough().weak();
                                                 }
+                                                let drag_resp = ui
+                                                    .interact(
+                                                        ui.max_rect(),
+                                                        drag_id,
+                                                        egui::Sense::click_and_drag(),
+                                                    )
+                                                    .on_hover_cursor(egui::CursorIcon::Grab);
+                                                if drag_resp.drag_started() {
+                                                    egui::DragAndDrop::set_payload(ui.ctx(), index);
+                                                }
                                                 let response = ui
                                                     .add(
                                                         egui::Label::new(rich)
                                                             .sense(egui::Sense::click()),
                                                     )
-                                                    .on_hover_text("Clic derecho para opciones");
+                                                    .on_hover_text(
+                                                        "Clic derecho: opciones · Arrastrar: mover",
+                                                    );
+                                                let _ = drag_resp;
                                                 egui::Popup::context_menu(&response).show(|ui| {
                                                     if ui.button("Editar texto").clicked() {
                                                         edit_start =
@@ -982,9 +1001,17 @@ impl UrustJournalApp {
                                         },
                                     );
                                 });
+                                let row_rect = row.response.rect;
+                                row_rects.push((index, row_rect));
+                                if dragging {
+                                    ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+                                    let accent = self.theme.palette().accent;
+                                    let ghost = accent.gamma_multiply(0.12);
+                                    ui.painter().rect_filled(row_rect, 0.0, ghost);
+                                }
 
-                                let line_y = row.response.rect.bottom() + 3.0;
-                                let line_left = row.response.rect.left();
+                                let line_y = row_rect.bottom() + 3.0;
+                                let line_left = row_rect.left();
                                 let line_right = ui.max_rect().right();
                                 ui.painter().line_segment(
                                     [
@@ -994,6 +1021,52 @@ impl UrustJournalApp {
                                     egui::Stroke::new(1.0, self.theme.palette().accent),
                                 );
                                 ui.add_space(3.0);
+                            }
+                            if let Some(payload) = egui::DragAndDrop::payload::<usize>(ui.ctx()) {
+                                let from = *payload;
+                                if let Some(pointer) = ui.ctx().pointer_interact_pos() {
+                                    let mut target = bullet_count;
+                                    for (i, (_, rect)) in row_rects.iter().enumerate() {
+                                        if pointer.y < rect.center().y {
+                                            target = i;
+                                            break;
+                                        }
+                                    }
+                                    let line_y = if target < row_rects.len() {
+                                        row_rects[target].1.top()
+                                    } else if let Some((_, last)) = row_rects.last() {
+                                        last.bottom() + 3.0
+                                    } else {
+                                        0.0
+                                    };
+                                    if line_y > 0.0 {
+                                        let accent = self.theme.palette().accent;
+                                        let x0 = ui.max_rect().left();
+                                        let x1 = ui.max_rect().right();
+                                        ui.painter().line_segment(
+                                            [egui::pos2(x0, line_y), egui::pos2(x1, line_y)],
+                                            egui::Stroke::new(2.0, accent),
+                                        );
+                                    }
+                                    if ui.input(|i| i.pointer.any_released()) {
+                                        let mut to = target.min(bullet_count);
+                                        if to > from {
+                                            to = to.saturating_sub(1);
+                                        }
+                                        to = to.min(bullet_count.saturating_sub(1));
+                                        if to != from
+                                            && let Some(page) = self
+                                                .current
+                                                .as_mut()
+                                                .and_then(|j| j.page_mut(kind, page_index))
+                                            && page.move_bullet(from, to)
+                                        {
+                                            self.dirty = true;
+                                            self.editing_bullet = None;
+                                        }
+                                        egui::DragAndDrop::clear_payload(ui.ctx());
+                                    }
+                                }
                             }
                         });
                 });

@@ -52,6 +52,17 @@ impl Page {
         }
     }
 
+    /// Moves a bullet from one index to another.
+    pub fn move_bullet(&mut self, from: usize, to: usize) -> bool {
+        let len = self.bullets.len();
+        if from >= len || to >= len || from == to {
+            return false;
+        }
+        let bullet = self.bullets.remove(from);
+        self.bullets.insert(to, bullet);
+        true
+    }
+
     /// Toggles the task at `index`. Returns whether the index existed.
     pub fn toggle(&mut self, index: usize) -> bool {
         match self.bullets.get_mut(index) {
