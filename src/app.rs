@@ -1384,7 +1384,7 @@ impl eframe::App for UrustJournalApp {
                 .default_width(220.0)
                 .show(ctx, |ui| {
                     ui.horizontal(|ui| {
-                        ui.heading("Journals");
+                        ui.heading(note_heading(self.lang.t("journals"), self.lang));
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             collapse_arrow(
                                 ui,
