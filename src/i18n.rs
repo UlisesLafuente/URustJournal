@@ -34,12 +34,12 @@ impl Lang {
                 Self::Ja => "概要",
             },
             "about_title" => match self {
-                Self::Es => "Acerca de UrustJournal",
-                Self::En => "About UrustJournal",
-                Self::De => "Über UrustJournal",
-                Self::It => "Informazioni su UrustJournal",
-                Self::Pt => "Sobre o UrustJournal",
-                Self::Ja => "UrustJournal について",
+                Self::Es => "Acerca de UJournal",
+                Self::En => "About UJournal",
+                Self::De => "Über UJournal",
+                Self::It => "Informazioni su UJournal",
+                Self::Pt => "Sobre o UJournal",
+                Self::Ja => "UJournal について",
             },
             "add" => match self {
                 Self::Es => "Añadir:",

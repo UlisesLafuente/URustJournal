@@ -2975,6 +2975,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ujournal"
+version = "0.4.0"
+dependencies = [
+ "directories",
+ "eframe",
+ "tempfile",
+]
+
+[[package]]
 name = "unicode-ident"
 version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3002,15 +3011,6 @@ dependencies = [
  "idna",
  "percent-encoding",
  "serde",
-]
-
-[[package]]
-name = "urust_journal"
-version = "0.3.0"
-dependencies = [
- "directories",
- "eframe",
- "tempfile",
 ]
 
 [[package]]

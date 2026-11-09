@@ -1,5 +1,5 @@
-use urust_journal::JournalError;
-use urust_journal::journal::{JournalName, MAX_NAME_LEN};
+use ujournal::JournalError;
+use ujournal::journal::{JournalName, MAX_NAME_LEN};
 
 #[test]
 fn accepts_valid_names() {

@@ -289,7 +289,7 @@ struct Status {
 }
 
 /// Top-level application state.
-pub struct UrustJournalApp {
+pub struct UJournalApp {
     storage: JournalStorage,
     journals: Vec<JournalName>,
     selected: Option<JournalName>,
@@ -315,7 +315,7 @@ pub struct UrustJournalApp {
     lang: Lang,
 }
 
-impl UrustJournalApp {
+impl UJournalApp {
     /// Builds the application and loads the journal list.
     pub fn new(cc: &eframe::CreationContext<'_>, storage: JournalStorage) -> Self {
         let theme = crate::theme::Theme::default();
@@ -671,7 +671,7 @@ impl UrustJournalApp {
 
     fn top_bar(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
         ui.horizontal(|ui| {
-            ui.heading("UrustJournal");
+            ui.heading("UJournal");
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.menu_button("⋯", |ui| {
                     ui.menu_button(self.lang.t("theme_label"), |ui| {
@@ -1366,7 +1366,7 @@ impl UrustJournalApp {
             .resizable(true)
             .default_width(600.0)
             .show(ctx, |ui| {
-                ui.heading(note_heading("UrustJournal", self.lang));
+                ui.heading(note_heading("UJournal", self.lang));
                 ui.label(format!(
                     "{} {}",
                     self.lang.t("version"),
@@ -1403,7 +1403,7 @@ impl UrustJournalApp {
     }
 }
 
-impl eframe::App for UrustJournalApp {
+impl eframe::App for UJournalApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("top_bar").show(ctx, |ui| self.top_bar(ui, ctx));
 

@@ -1,4 +1,4 @@
-use urust_journal::journal::{AnnotationColor, Bullet, BulletMarker};
+use ujournal::journal::{AnnotationColor, Bullet, BulletMarker};
 
 #[test]
 fn parses_every_bullet_kind() {

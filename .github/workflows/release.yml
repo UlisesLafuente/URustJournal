@@ -11,8 +11,8 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  BIN_NAME: urust_journal
-  APP_NAME: UrustJournal
+  BIN_NAME: ujournal
+  APP_NAME: UJournal
 
 jobs:
   release-linux:
@@ -39,10 +39,10 @@ jobs:
           set -e
           mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
           cp target/release/${BIN_NAME} AppDir/usr/bin/${BIN_NAME}
-          cp packaging/urustjournal.desktop AppDir/usr/share/applications/urustjournal.desktop
-          cp packaging/urustjournal.desktop AppDir/urustjournal.desktop
-          cp assets/app-icon.png AppDir/usr/share/icons/hicolor/256x256/apps/urustjournal.png
-          cp assets/app-icon.png AppDir/urustjournal.png
+          cp packaging/ujournal.desktop AppDir/usr/share/applications/ujournal.desktop
+          cp packaging/ujournal.desktop AppDir/ujournal.desktop
+          cp assets/app-icon.png AppDir/usr/share/icons/hicolor/256x256/apps/ujournal.png
+          cp assets/app-icon.png AppDir/ujournal.png
           (cd AppDir && ln -s usr/bin/${BIN_NAME} AppRun)
           chmod +x AppDir/AppRun AppDir/usr/bin/${BIN_NAME}
       - name: Build AppImage
@@ -53,8 +53,8 @@ jobs:
           chmod +x linuxdeploy
           export APPIMAGE_EXTRACT_AND_RUN=1
           ./linuxdeploy --appdir AppDir \
-            --desktop-file AppDir/usr/share/applications/urustjournal.desktop \
-            --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/urustjournal.png \
+            --desktop-file AppDir/usr/share/applications/ujournal.desktop \
+            --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/ujournal.png \
             --output appimage
           mkdir -p dist
           mv *.AppImage "dist/${APP_NAME}-linux-x86_64.AppImage"
@@ -121,7 +121,7 @@ jobs:
           <dict>
             <key>CFBundleName</key><string>${APP_NAME}</string>
             <key>CFBundleDisplayName</key><string>${APP_NAME}</string>
-            <key>CFBundleIdentifier</key><string>org.urustjournal.UrustJournal</string>
+            <key>CFBundleIdentifier</key><string>org.ujournal.UJournal</string>
             <key>CFBundleVersion</key><string>${GITHUB_REF_NAME}</string>
             <key>CFBundleShortVersionString</key><string>${GITHUB_REF_NAME}</string>
             <key>CFBundleExecutable</key><string>${BIN_NAME}</string>

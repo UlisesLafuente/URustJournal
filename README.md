@@ -1,4 +1,4 @@
-# URustJournal
+# UJournal
 
 Aplicación de *bullet journal* multiplataforma escrita en Rust con [eframe/egui](https://github.com/emilk/egui).
 

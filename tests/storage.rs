@@ -1,8 +1,8 @@
 use std::fs;
 
 use tempfile::TempDir;
-use urust_journal::JournalError;
-use urust_journal::journal::{Bullet, JournalName, JournalStorage, SectionKind};
+use ujournal::JournalError;
+use ujournal::journal::{Bullet, JournalName, JournalStorage, SectionKind};
 
 fn storage() -> (TempDir, JournalStorage) {
     let temp = tempfile::tempdir().expect("temp dir");

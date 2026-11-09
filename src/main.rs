@@ -1,8 +1,8 @@
 use eframe::egui;
-use urust_journal::app::UrustJournalApp;
-use urust_journal::journal::JournalStorage;
+use ujournal::app::UJournalApp;
+use ujournal::journal::JournalStorage;
 
-const APP_ID: &str = "org.urustjournal.UrustJournal";
+const APP_ID: &str = "org.ujournal.UJournal";
 
 fn main() -> eframe::Result<()> {
     let storage = match JournalStorage::new_default() {
@@ -17,16 +17,16 @@ fn main() -> eframe::Result<()> {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([960.0, 640.0])
             .with_min_inner_size([640.0, 400.0])
-            .with_title("UrustJournal")
+            .with_title("UJournal")
             .with_app_id(APP_ID)
             .with_icon(generic_icon()),
         ..Default::default()
     };
 
     eframe::run_native(
-        "UrustJournal",
+        "UJournal",
         options,
-        Box::new(move |cc| Ok(Box::new(UrustJournalApp::new(cc, storage)))),
+        Box::new(move |cc| Ok(Box::new(UJournalApp::new(cc, storage)))),
     )
 }
 

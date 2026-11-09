@@ -1,5 +1,5 @@
-use urust_journal::JournalError;
-use urust_journal::journal::{Bullet, Journal, JournalName, SectionKind};
+use ujournal::JournalError;
+use ujournal::journal::{Bullet, Journal, JournalName, SectionKind};
 
 fn name(raw: &str) -> JournalName {
     JournalName::new(raw).expect("valid name")

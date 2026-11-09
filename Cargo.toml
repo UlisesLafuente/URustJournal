@@ -1,8 +1,8 @@
 [package]
-name = "urust_journal"
-version = "0.3.0"
+name = "ujournal"
+version = "0.4.0"
 edition = "2024"
-description = "A cross-platform bullet journal written in Rust."
+description = "UJournal: a cross-platform bullet journal written in Rust."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/UlisesLafuente/URustJournal"
 keywords = ["journal", "notes", "bullet-journal", "egui", "productivity"]
