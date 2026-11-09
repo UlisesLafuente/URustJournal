@@ -423,16 +423,16 @@ impl UrustJournalApp {
         }
     }
 
-    fn save_journal(&mut self) {
+    fn autosave(&mut self) {
+        if !self.dirty {
+            return;
+        }
         let result = match self.current.as_ref() {
             Some(journal) => self.storage.save(journal),
             None => return,
         };
         match result {
-            Ok(()) => {
-                self.dirty = false;
-                self.show_info(self.lang.t("journal_saved"));
-            }
+            Ok(()) => self.dirty = false,
             Err(error) => self.show_error(error),
         }
     }
@@ -707,12 +707,6 @@ impl UrustJournalApp {
                 let _r = r.labelled_by(l.id);
                 if ui.button(self.lang.t("rename")).clicked() {
                     self.rename_selected();
-                }
-                if ui
-                    .add_enabled(self.dirty, egui::Button::new(self.lang.t("save")))
-                    .clicked()
-                {
-                    self.save_journal();
                 }
                 if ui.button(self.lang.t("delete")).clicked() {
                     self.delete_selected();
@@ -1330,12 +1324,6 @@ impl UrustJournalApp {
 
 impl eframe::App for UrustJournalApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if self.dirty
-            && ctx.input(|input| input.modifiers.command && input.key_pressed(egui::Key::S))
-        {
-            self.save_journal();
-        }
-
         egui::TopBottomPanel::top("top_bar").show(ctx, |ui| self.top_bar(ui, ctx));
 
         if self.show_journal_list {
@@ -1389,6 +1377,7 @@ impl eframe::App for UrustJournalApp {
         });
 
         self.about_window(ctx);
+        self.autosave();
     }
 }
 
