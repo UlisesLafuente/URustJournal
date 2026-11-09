@@ -13,6 +13,7 @@ fn main() -> eframe::Result<()> {
         }
     };
 
+    let persistence_path = storage.directory().join("ui_prefs.ron");
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([960.0, 640.0])
@@ -20,6 +21,7 @@ fn main() -> eframe::Result<()> {
             .with_title("UJournal")
             .with_app_id(APP_ID)
             .with_icon(generic_icon()),
+        persistence_path: Some(persistence_path),
         ..Default::default()
     };
 

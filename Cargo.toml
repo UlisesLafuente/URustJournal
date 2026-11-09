@@ -1,6 +1,6 @@
 [package]
 name = "ujournal"
-version = "0.5.2"
+version = "0.5.3"
 edition = "2024"
 description = "UJournal: a cross-platform bullet journal written in Rust."
 license = "MIT OR Apache-2.0"
@@ -18,20 +18,24 @@ eframe = { version = "0.33", default-features = false, features = [
     "accesskit",
     "default_fonts",
     "glow",
+    "persistence",
     "wayland",
     "web_screen_reader",
     "x11",
 ] }
+serde = { version = "1", features = ["derive"] }
 winit = "0.30"
 
 [target.'cfg(target_os = "android")'.dependencies]
 directories = "6"
 eframe = { version = "0.33", default-features = false, features = [
     "accesskit",
-    "default_fonts",
-    "wgpu",
     "android-game-activity",
+    "default_fonts",
+    "persistence",
+    "wgpu",
 ] }
+serde = { version = "1", features = ["derive"] }
 wgpu = { version = "27.0.1", default-features = false, features = [
     "gles",
     "vulkan",

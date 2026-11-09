@@ -10,6 +10,17 @@ use crate::theme::Theme;
 
 mod mobile;
 
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+struct UiPrefs {
+    lang: Option<Lang>,
+    theme: Option<Theme>,
+    show_journal_list: Option<bool>,
+    show_sections_pages: Option<bool>,
+    show_annotations: Option<bool>,
+}
+
+const PREFS_KEY: &str = "ujournal.ui_prefs";
+
 const CAVEAT: &str = "caveat";
 const SCRIPT_TEXT_STYLE: &str = "Script";
 const SCRIPT_SIZE: f32 = 16.0;
@@ -331,7 +342,12 @@ pub struct UJournalApp {
 impl UJournalApp {
     /// Builds the application and loads the journal list.
     pub fn new(cc: &eframe::CreationContext<'_>, storage: JournalStorage) -> Self {
-        let theme = crate::theme::Theme::default();
+        let prefs: UiPrefs = cc
+            .storage
+            .and_then(|s| eframe::get_value(s, PREFS_KEY))
+            .unwrap_or_default();
+        let theme = prefs.theme.unwrap_or_default();
+        let lang = prefs.lang.unwrap_or_default();
         install_fonts(&cc.egui_ctx);
         configure_style(&cc.egui_ctx, theme);
 
@@ -350,20 +366,32 @@ impl UJournalApp {
             status: None,
             dirty: false,
             show_about: false,
-            show_journal_list: true,
-            show_sections_pages: true,
-            show_annotations: true,
+            show_journal_list: prefs.show_journal_list.unwrap_or(true),
+            show_sections_pages: prefs.show_sections_pages.unwrap_or(true),
+            show_annotations: prefs.show_annotations.unwrap_or(true),
             editing_bullet: None,
             moving_bullet: None,
             renaming_journal: None,
             creating_journal: false,
             mobile: mobile::MobileState::default(),
             theme,
-            lang: Lang::default(),
+            lang,
         };
         app.refresh();
         app
     }
+
+    fn save_prefs(&self, storage: &mut dyn eframe::Storage) {
+        let prefs = UiPrefs {
+            lang: Some(self.lang),
+            theme: Some(self.theme),
+            show_journal_list: Some(self.show_journal_list),
+            show_sections_pages: Some(self.show_sections_pages),
+            show_annotations: Some(self.show_annotations),
+        };
+        eframe::set_value(storage, PREFS_KEY, &prefs);
+    }
+
 
     fn refresh(&mut self) {
         match self.storage.list() {
@@ -1423,6 +1451,12 @@ impl UJournalApp {
 }
 
 impl eframe::App for UJournalApp {
+
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        self.save_prefs(storage);
+        self.autosave();
+    }
+
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if !ctx.input(|i| i.viewport().focused.unwrap_or(true)) {
             self.autosave();

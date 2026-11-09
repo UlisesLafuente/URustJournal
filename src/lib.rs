@@ -19,6 +19,7 @@ pub fn android_main(app: winit::platform::android::activity::AndroidApp) {
         eprintln!("No se pudo determinar el directorio de datos de Android");
         return;
     };
+    let persistence_path = data_dir.join("ui_prefs.ron");
     let storage = match JournalStorage::with_dir(data_dir.join("journals")) {
         Ok(storage) => storage,
         Err(error) => {
@@ -31,6 +32,7 @@ pub fn android_main(app: winit::platform::android::activity::AndroidApp) {
         android_app: Some(app),
         renderer: eframe::Renderer::Wgpu,
         viewport: eframe::egui::ViewportBuilder::default().with_title("UJournal"),
+        persistence_path: Some(persistence_path),
         ..Default::default()
     };
 
