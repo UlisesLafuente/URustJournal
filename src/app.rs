@@ -6,6 +6,7 @@ use crate::i18n::Lang;
 use crate::journal::{
     AnnotationColor, Bullet, BulletMarker, Journal, JournalName, JournalStorage, SectionKind,
 };
+use crate::theme::Theme;
 
 const CAVEAT: &str = "caveat";
 const SCRIPT_TEXT_STYLE: &str = "Script";
@@ -20,198 +21,8 @@ const DESATURATED_BLUE: egui::Color32 = egui::Color32::from_rgb(0x6E, 0x86, 0xA8
 const EMERALD_GREEN: egui::Color32 = egui::Color32::from_rgb(0x3E, 0x8A, 0x63);
 const RUST_RED: egui::Color32 = egui::Color32::from_rgb(0xA6, 0x58, 0x4E);
 
-fn annotation_color(color: AnnotationColor, theme: Theme) -> egui::Color32 {
-    let ink = theme.palette().ink;
-    match color {
-        AnnotationColor::Black => ink,
-        AnnotationColor::DesaturatedBlue => DESATURATED_BLUE,
-        AnnotationColor::EmeraldGreen => EMERALD_GREEN,
-        AnnotationColor::RustRed => RUST_RED,
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-enum Theme {
-    #[default]
-    PapelAmarillento,
-    AzulNordico,
-    BosqueAntiguo,
-    SuenoVioleta,
-    VSCodeDarkPlus,
-    Dracula,
-    Nord,
-    OneDarkPro,
-    Monokai,
-    SolarizedDark,
-    SolarizedLight,
-    GruvboxDark,
-    CatppuccinMocha,
-    GitHubLight,
-}
-
-impl Theme {
-    const ALL: [Self; 14] = [
-        Self::PapelAmarillento,
-        Self::AzulNordico,
-        Self::BosqueAntiguo,
-        Self::SuenoVioleta,
-        Self::VSCodeDarkPlus,
-        Self::Dracula,
-        Self::Nord,
-        Self::OneDarkPro,
-        Self::Monokai,
-        Self::SolarizedDark,
-        Self::SolarizedLight,
-        Self::GruvboxDark,
-        Self::CatppuccinMocha,
-        Self::GitHubLight,
-    ];
-
-    fn label(self) -> &'static str {
-        match self {
-            Self::PapelAmarillento => "Papel amarillento",
-            Self::AzulNordico => "Azul nórdico",
-            Self::BosqueAntiguo => "Bosque antiguo",
-            Self::SuenoVioleta => "Sueño violeta",
-            Self::VSCodeDarkPlus => "VS Code Dark+",
-            Self::Dracula => "Dracula",
-            Self::Nord => "Nord",
-            Self::OneDarkPro => "One Dark Pro",
-            Self::Monokai => "Monokai",
-            Self::SolarizedDark => "Solarized Dark",
-            Self::SolarizedLight => "Solarized Light",
-            Self::GruvboxDark => "Gruvbox Dark",
-            Self::CatppuccinMocha => "Catppuccin Mocha",
-            Self::GitHubLight => "GitHub Light",
-        }
-    }
-
-    fn palette(self) -> ThemePalette {
-        match self {
-            Self::PapelAmarillento => ThemePalette {
-                bg: egui::Color32::from_rgb(0xEA, 0xE6, 0xDF),
-                bg_alt: egui::Color32::from_rgb(0xD5, 0xD6, 0xD2),
-                accent_soft: egui::Color32::from_rgb(0xE2, 0xD9, 0xC5),
-                accent: egui::Color32::from_rgb(0xCF, 0xC2, 0xB4),
-                ink: egui::Color32::from_rgb(0x3B, 0x35, 0x2F),
-                dark_mode: false,
-            },
-            Self::AzulNordico => ThemePalette {
-                bg: egui::Color32::from_rgb(0x07, 0x11, 0x1F),
-                bg_alt: egui::Color32::from_rgb(0x0B, 0x3D, 0x6E),
-                accent_soft: egui::Color32::from_rgb(0x1D, 0x8A, 0xCB),
-                accent: egui::Color32::from_rgb(0x60, 0xD6, 0xFF),
-                ink: egui::Color32::from_rgb(0xB8, 0xF3, 0xFF),
-                dark_mode: true,
-            },
-            Self::BosqueAntiguo => ThemePalette {
-                bg: egui::Color32::from_rgb(0x08, 0x14, 0x0F),
-                bg_alt: egui::Color32::from_rgb(0x1E, 0x4D, 0x35),
-                accent_soft: egui::Color32::from_rgb(0x3F, 0xA8, 0x6D),
-                accent: egui::Color32::from_rgb(0x9A, 0xD9, 0x8B),
-                ink: egui::Color32::from_rgb(0xE1, 0xF0, 0xB5),
-                dark_mode: true,
-            },
-            Self::SuenoVioleta => ThemePalette {
-                bg: egui::Color32::from_rgb(0x0E, 0x07, 0x19),
-                bg_alt: egui::Color32::from_rgb(0x5A, 0x2C, 0xFF),
-                accent_soft: egui::Color32::from_rgb(0x9B, 0x5C, 0xFF),
-                accent: egui::Color32::from_rgb(0xF2, 0x5C, 0xFF),
-                ink: egui::Color32::from_rgb(0x58, 0xF2, 0xD7),
-                dark_mode: true,
-            },
-            Self::VSCodeDarkPlus => ThemePalette {
-                bg: egui::Color32::from_rgb(0x1E, 0x1E, 0x1E),
-                bg_alt: egui::Color32::from_rgb(0x25, 0x25, 0x26),
-                accent_soft: egui::Color32::from_rgb(0x26, 0x4F, 0x78),
-                accent: egui::Color32::from_rgb(0x00, 0x7A, 0xCC),
-                ink: egui::Color32::from_rgb(0xD4, 0xD4, 0xD4),
-                dark_mode: true,
-            },
-            Self::Dracula => ThemePalette {
-                bg: egui::Color32::from_rgb(0x28, 0x2A, 0x36),
-                bg_alt: egui::Color32::from_rgb(0x44, 0x47, 0x5A),
-                accent_soft: egui::Color32::from_rgb(0x62, 0x72, 0xA4),
-                accent: egui::Color32::from_rgb(0xBD, 0x93, 0xF9),
-                ink: egui::Color32::from_rgb(0xF8, 0xF8, 0xF2),
-                dark_mode: true,
-            },
-            Self::Nord => ThemePalette {
-                bg: egui::Color32::from_rgb(0x2E, 0x34, 0x40),
-                bg_alt: egui::Color32::from_rgb(0x3B, 0x42, 0x52),
-                accent_soft: egui::Color32::from_rgb(0x4C, 0x56, 0x6A),
-                accent: egui::Color32::from_rgb(0x88, 0xC0, 0xD0),
-                ink: egui::Color32::from_rgb(0xEC, 0xEF, 0xF4),
-                dark_mode: true,
-            },
-            Self::OneDarkPro => ThemePalette {
-                bg: egui::Color32::from_rgb(0x28, 0x2C, 0x34),
-                bg_alt: egui::Color32::from_rgb(0x21, 0x25, 0x2B),
-                accent_soft: egui::Color32::from_rgb(0x3E, 0x44, 0x51),
-                accent: egui::Color32::from_rgb(0x61, 0xAF, 0xEF),
-                ink: egui::Color32::from_rgb(0xAB, 0xB2, 0xBF),
-                dark_mode: true,
-            },
-            Self::Monokai => ThemePalette {
-                bg: egui::Color32::from_rgb(0x27, 0x28, 0x22),
-                bg_alt: egui::Color32::from_rgb(0x3E, 0x3D, 0x32),
-                accent_soft: egui::Color32::from_rgb(0x75, 0x71, 0x5E),
-                accent: egui::Color32::from_rgb(0xA6, 0xE2, 0x2E),
-                ink: egui::Color32::from_rgb(0xF8, 0xF8, 0xF2),
-                dark_mode: true,
-            },
-            Self::SolarizedDark => ThemePalette {
-                bg: egui::Color32::from_rgb(0x00, 0x2B, 0x36),
-                bg_alt: egui::Color32::from_rgb(0x07, 0x36, 0x42),
-                accent_soft: egui::Color32::from_rgb(0x58, 0x6E, 0x75),
-                accent: egui::Color32::from_rgb(0x26, 0x8B, 0xD2),
-                ink: egui::Color32::from_rgb(0x83, 0x94, 0x96),
-                dark_mode: true,
-            },
-            Self::SolarizedLight => ThemePalette {
-                bg: egui::Color32::from_rgb(0xFD, 0xF6, 0xE3),
-                bg_alt: egui::Color32::from_rgb(0xEE, 0xE8, 0xD5),
-                accent_soft: egui::Color32::from_rgb(0x93, 0xA1, 0xA1),
-                accent: egui::Color32::from_rgb(0x26, 0x8B, 0xD2),
-                ink: egui::Color32::from_rgb(0x65, 0x7B, 0x83),
-                dark_mode: false,
-            },
-            Self::GruvboxDark => ThemePalette {
-                bg: egui::Color32::from_rgb(0x28, 0x28, 0x28),
-                bg_alt: egui::Color32::from_rgb(0x3C, 0x38, 0x36),
-                accent_soft: egui::Color32::from_rgb(0x50, 0x49, 0x45),
-                accent: egui::Color32::from_rgb(0xFE, 0x80, 0x19),
-                ink: egui::Color32::from_rgb(0xEB, 0xDB, 0xB2),
-                dark_mode: true,
-            },
-            Self::CatppuccinMocha => ThemePalette {
-                bg: egui::Color32::from_rgb(0x1E, 0x1E, 0x2E),
-                bg_alt: egui::Color32::from_rgb(0x31, 0x32, 0x44),
-                accent_soft: egui::Color32::from_rgb(0x45, 0x47, 0x5A),
-                accent: egui::Color32::from_rgb(0xCB, 0xA6, 0xF7), // fixed below
-                ink: egui::Color32::from_rgb(0xCD, 0xD6, 0xF4),
-                dark_mode: true,
-            },
-            Self::GitHubLight => ThemePalette {
-                bg: egui::Color32::from_rgb(0xFF, 0xFF, 0xFF),
-                bg_alt: egui::Color32::from_rgb(0xF6, 0xF8, 0xFA),
-                accent_soft: egui::Color32::from_rgb(0xDD, 0xF4, 0xFF),
-                accent: egui::Color32::from_rgb(0x09, 0x69, 0xDA),
-                ink: egui::Color32::from_rgb(0x1F, 0x23, 0x28),
-                dark_mode: false,
-            },
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct ThemePalette {
-    bg: egui::Color32,
-    bg_alt: egui::Color32,
-    accent_soft: egui::Color32,
-    accent: egui::Color32,
-    ink: egui::Color32,
-    dark_mode: bool,
+fn theme_label(t: Theme) -> &'static str {
+    t.label()
 }
 
 fn section_label(kind: SectionKind, lang: Lang) -> &'static str {
@@ -221,6 +32,7 @@ fn section_label(kind: SectionKind, lang: Lang) -> &'static str {
         SectionKind::Journal => lang.t("section_journal"),
     }
 }
+
 fn marker_label(m: BulletMarker, lang: Lang) -> &'static str {
     match m {
         BulletMarker::Task => lang.t("task"),
@@ -231,17 +43,24 @@ fn marker_label(m: BulletMarker, lang: Lang) -> &'static str {
         BulletMarker::Note => lang.t("note"),
     }
 }
-fn color_label(c: crate::journal::AnnotationColor, lang: Lang) -> &'static str {
-    use crate::journal::AnnotationColor::*;
+
+fn color_label(c: AnnotationColor, lang: Lang) -> &'static str {
     match c {
-        Black => lang.t("color_black"),
-        DesaturatedBlue => lang.t("color_blue"),
-        EmeraldGreen => lang.t("color_emerald"),
-        RustRed => lang.t("color_rust"),
+        AnnotationColor::Black => lang.t("color_black"),
+        AnnotationColor::DesaturatedBlue => lang.t("color_blue"),
+        AnnotationColor::EmeraldGreen => lang.t("color_emerald"),
+        AnnotationColor::RustRed => lang.t("color_rust"),
     }
 }
-fn theme_label(t: Theme) -> &'static str {
-    t.label()
+
+fn annotation_color(color: AnnotationColor, theme: Theme) -> egui::Color32 {
+    let ink = theme.palette().ink;
+    match color {
+        AnnotationColor::Black => ink,
+        AnnotationColor::DesaturatedBlue => DESATURATED_BLUE,
+        AnnotationColor::EmeraldGreen => EMERALD_GREEN,
+        AnnotationColor::RustRed => RUST_RED,
+    }
 }
 
 fn script_family() -> egui::FontFamily {
@@ -499,7 +318,7 @@ pub struct UrustJournalApp {
 impl UrustJournalApp {
     /// Builds the application and loads the journal list.
     pub fn new(cc: &eframe::CreationContext<'_>, storage: JournalStorage) -> Self {
-        let theme = Theme::default();
+        let theme = crate::theme::Theme::default();
         install_fonts(&cc.egui_ctx);
         configure_style(&cc.egui_ctx, theme);
 
@@ -790,7 +609,7 @@ impl UrustJournalApp {
                 egui::ComboBox::from_id_salt("theme_select")
                     .selected_text(theme_label(self.theme))
                     .show_ui(ui, |ui| {
-                        for theme in Theme::ALL {
+                        for theme in crate::theme::Theme::ALL {
                             if ui
                                 .selectable_value(&mut self.theme, theme, theme_label(theme))
                                 .changed()
@@ -1562,7 +1381,7 @@ mod tests {
     fn script_font_loads_and_lays_out_text() {
         let ctx = egui::Context::default();
         install_fonts(&ctx);
-        configure_style(&ctx, Theme::default());
+        configure_style(&ctx, crate::theme::Theme::default());
 
         let _ = ctx.run(egui::RawInput::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
