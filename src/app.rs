@@ -591,36 +591,59 @@ impl UrustJournalApp {
                 }
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button(self.lang.t("about")).clicked() {
-                    self.show_about = true;
-                }
-                ui.separator();
-                ui.label(self.lang.t("language_label"));
-                egui::ComboBox::from_id_salt("lang_select")
-                    .selected_text(self.lang.label())
-                    .show_ui(ui, |ui| {
-                        for lang in Lang::ALL {
-                            ui.selectable_value(&mut self.lang, lang, lang.label());
+                ui.menu_button("⋯", |ui| {
+                    if ui.button(self.lang.t("new_journal")).clicked() {
+                        self.show_create_bar = true;
+                        ui.close();
+                    }
+                    ui.menu_button(self.lang.t("theme_label"), |ui| {
+                        let mut changed = false;
+                        egui::ScrollArea::vertical()
+                            .max_height(320.0)
+                            .show(ui, |ui| {
+                                for theme in crate::theme::Theme::ALL {
+                                    if ui
+                                        .selectable_value(
+                                            &mut self.theme,
+                                            theme,
+                                            theme_label(theme),
+                                        )
+                                        .changed()
+                                    {
+                                        changed = true;
+                                        ui.close();
+                                    }
+                                }
+                            });
+                        if changed {
+                            configure_style(ctx, self.theme);
                         }
                     });
-                ui.separator();
-                ui.label(self.lang.t("theme_label"));
-                let mut changed = false;
-                egui::ComboBox::from_id_salt("theme_select")
-                    .selected_text(theme_label(self.theme))
-                    .show_ui(ui, |ui| {
-                        for theme in crate::theme::Theme::ALL {
+                    ui.menu_button(self.lang.t("language_label"), |ui| {
+                        for lang in Lang::ALL {
                             if ui
-                                .selectable_value(&mut self.theme, theme, theme_label(theme))
-                                .changed()
+                                .selectable_value(&mut self.lang, lang, lang.label())
+                                .clicked()
                             {
-                                changed = true;
+                                ui.close();
                             }
                         }
                     });
-                if changed {
-                    configure_style(ctx, self.theme);
-                }
+                    ui.separator();
+                    if ui.button(self.lang.t("about")).clicked() {
+                        self.show_about = true;
+                        ui.close();
+                    }
+                })
+                .response
+                .on_hover_text(self.lang.t("options"))
+                .widget_info(|| {
+                    egui::WidgetInfo::labeled(
+                        egui::WidgetType::Button,
+                        true,
+                        self.lang.t("options"),
+                    )
+                });
             });
         });
 
