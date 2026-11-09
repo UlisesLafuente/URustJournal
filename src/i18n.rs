@@ -433,6 +433,14 @@ impl Lang {
                 Self::Pt => "Novo journal:",
                 Self::Ja => "新規ジャーナル:",
             },
+            "new_page" => match self {
+                Self::Es => "Nueva página:",
+                Self::En => "New page:",
+                Self::De => "Neue Seite:",
+                Self::It => "Nuova pagina:",
+                Self::Pt => "Nova página:",
+                Self::Ja => "新しいページ:",
+            },
             "no_journals" => match self {
                 Self::Es => "Aún no hay journals.",
                 Self::En => "No journals yet.",

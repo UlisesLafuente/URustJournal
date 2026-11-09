@@ -284,10 +284,12 @@ fn script_font(size: f32) -> egui::FontId {
     egui::FontId::new(size, script_family())
 }
 
+#[allow(dead_code)]
 fn script_text(text: impl Into<String>) -> egui::RichText {
     egui::RichText::new(text).text_style(script_text_style())
 }
 
+#[allow(dead_code)]
 fn script_heading(text: impl Into<String>) -> egui::RichText {
     egui::RichText::new(text).font(script_font(SCRIPT_HEADING_SIZE))
 }
@@ -737,7 +739,7 @@ impl UrustJournalApp {
                 ui.label(self.lang.t("new_journal"));
                 let response = ui.add(
                     egui::TextEdit::singleline(&mut self.new_journal_name)
-                        .font(script_font(SCRIPT_SIZE))
+                        .font(note_font(SCRIPT_SIZE, self.lang))
                         .hint_text(hint(self.lang.t("hint_journal"), self.theme))
                         .desired_width(180.0),
                 );
@@ -802,7 +804,7 @@ impl UrustJournalApp {
             for name in &self.journals {
                 let is_selected = self.selected.as_ref() == Some(name);
                 if ui
-                    .selectable_label(is_selected, script_text(name.as_str()))
+                    .selectable_label(is_selected, note_text(name.as_str(), self.lang))
                     .clicked()
                 {
                     to_open = Some(name.clone());
@@ -819,7 +821,7 @@ impl UrustJournalApp {
         let arrow_color = self.theme.palette().accent;
         ui.horizontal(|ui| {
             collapse_arrow(ui, &mut self.show_journal_actions, "▲", "▼", arrow_color);
-            ui.heading(script_heading(name.as_str()));
+            ui.heading(note_heading(name.as_str(), self.lang));
             if self.dirty {
                 ui.colored_label(PENDING_INK, self.lang.t("unsaved"));
             }
@@ -830,7 +832,7 @@ impl UrustJournalApp {
                 ui.label(self.lang.t("rename_label"));
                 ui.add(
                     egui::TextEdit::singleline(&mut self.rename_name)
-                        .font(script_font(SCRIPT_SIZE))
+                        .font(note_font(SCRIPT_SIZE, self.lang))
                         .desired_width(160.0)
                         .hint_text(hint(self.lang.t("hint_name"), self.theme)),
                 );
@@ -856,7 +858,7 @@ impl UrustJournalApp {
                 if ui
                     .selectable_label(
                         self.active_section == kind,
-                        script_text(section_label(kind, self.lang)),
+                        note_text(section_label(kind, self.lang), self.lang),
                     )
                     .clicked()
                 {
@@ -900,7 +902,7 @@ impl UrustJournalApp {
             ui.label("Nueva página:");
             let response = ui.add(
                 egui::TextEdit::singleline(&mut self.new_page_title)
-                    .font(script_font(SCRIPT_SIZE))
+                    .font(note_font(SCRIPT_SIZE, self.lang))
                     .hint_text(hint(self.lang.t("hint_date"), self.theme))
                     .desired_width(180.0),
             );
@@ -1272,7 +1274,7 @@ impl UrustJournalApp {
             );
             let response = ui.add(
                 egui::TextEdit::singleline(&mut self.new_bullet)
-                    .font(script_font(SCRIPT_SIZE))
+                    .font(note_font(SCRIPT_SIZE, self.lang))
                     .hint_text(hint(self.lang.t("write_here"), self.theme))
                     .desired_width(300.0),
             );
@@ -1329,7 +1331,7 @@ impl UrustJournalApp {
             .resizable(true)
             .default_width(600.0)
             .show(ctx, |ui| {
-                ui.heading(script_heading("UrustJournal"));
+                ui.heading(note_heading("UrustJournal", self.lang));
                 ui.label(format!(
                     "{} {}",
                     self.lang.t("version"),
