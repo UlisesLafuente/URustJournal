@@ -42,3 +42,26 @@ pub fn android_main(app: winit::platform::android::activity::AndroidApp) {
         eprintln!("No se pudo iniciar UJournal: {error}");
     }
 }
+
+#[cfg(target_os = "android")]
+mod ime_inset {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    static BOTTOM_PX: AtomicU32 = AtomicU32::new(0);
+    pub fn set_bottom_px(px: u32) { BOTTOM_PX.store(px, Ordering::Relaxed); }
+    pub fn points(ctx: &eframe::egui::Context) -> f32 {
+        let px = BOTTOM_PX.load(Ordering::Relaxed) as f32;
+        if px <= 0.0 { 0.0 } else { px / ctx.pixels_per_point().max(1.0) }
+    }
+    #[unsafe(no_mangle)]
+    pub extern "system" fn Java_org_ujournal_MainActivity_nativeImeInset(
+        _env: *mut std::ffi::c_void,
+        _class: *mut std::ffi::c_void,
+        bottom_px: i32,
+    ) {
+        set_bottom_px(bottom_px.max(0) as u32);
+    }
+}
+#[cfg(target_os = "android")]
+pub(crate) fn ime_inset_points(ctx: &eframe::egui::Context) -> f32 { ime_inset::points(ctx) }
+#[cfg(not(target_os = "android"))]
+pub(crate) fn ime_inset_points(_ctx: &eframe::egui::Context) -> f32 { 0.0 }

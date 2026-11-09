@@ -464,7 +464,8 @@ impl super::UJournalApp {
         if self.selected_page.is_none() {
             return;
         }
-        egui::TopBottomPanel::bottom("mobile_composer").show(ctx, |ui| {
+        let ime = crate::ime_inset_points(ctx);
+    egui::TopBottomPanel::bottom("mobile_composer").show(ctx, |ui| {
             ui.add_space(4.0);
             ui.horizontal(|ui| {
                 for (kind, label) in [
@@ -502,6 +503,9 @@ impl super::UJournalApp {
                 }
             });
             ui.add_space(4.0);
+            if ime > 0.0 {
+                ui.add_space(ime);
+            }
         });
     }
 
@@ -1128,10 +1132,11 @@ fn sheet(
     let p = theme.palette();
     let width = (ctx.content_rect().width() - 24.0).clamp(260.0, 520.0);
     let mut close = false;
+    let ime = crate::ime_inset_points(ctx);
     let response = egui::Modal::new(egui::Id::new(id))
         .area(
             egui::Modal::default_area(egui::Id::new(id))
-                .anchor(egui::Align2::CENTER_BOTTOM, egui::vec2(0.0, -10.0)),
+                .anchor(egui::Align2::CENTER_BOTTOM, egui::vec2(0.0, -10.0 - ime)),
         )
         .frame(
             egui::Frame::new()

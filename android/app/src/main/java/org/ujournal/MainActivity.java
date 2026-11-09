@@ -7,6 +7,7 @@ import android.view.WindowManager;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import androidx.core.view.ViewCompat;
 
 import com.google.androidgamesdk.GameActivity;
 
@@ -15,6 +16,8 @@ public class MainActivity extends GameActivity {
     static {
         System.loadLibrary("ujournal");
     }
+
+    private static native void nativeImeInset(int bottomPx);
 
     private void hideSystemUI() {
         getWindow().getAttributes().layoutInDisplayCutoutMode
@@ -33,6 +36,14 @@ public class MainActivity extends GameActivity {
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         hideSystemUI();
         super.onCreate(savedInstanceState);
+        View decor = getWindow().getDecorView();
+        ViewCompat.setOnApplyWindowInsetsListener(decor, (v, insets) -> {
+            int bottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
+            nativeImeInset(bottom);
+            ViewCompat.requestApplyInsets(v);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(decor);
     }
 
     @Override

@@ -1,6 +1,6 @@
 [package]
 name = "ujournal"
-version = "0.5.1"
+version = "0.5.2"
 edition = "2024"
 description = "UJournal: a cross-platform bullet journal written in Rust."
 license = "MIT OR Apache-2.0"
@@ -43,3 +43,6 @@ winit = { version = "0.30", default-features = false, features = [
 
 [dev-dependencies]
 tempfile = "3"
+
+[patch.crates-io]
+winit = { git = "https://github.com/rib/winit", rev = "ecb961694691ce80d066abb67784ace6713f9980" }
