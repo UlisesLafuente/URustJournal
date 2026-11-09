@@ -1,18 +1,18 @@
 # UJournal
 
-Aplicación de *bullet journal* multiplataforma escrita en Rust con [eframe/egui](https://github.com/emilk/egui).
+UJournal es una aplicación de *bullet journal* multiplataforma, escrita en Rust, pensada para anotar rápido y con una estética cálida tipo cuaderno.
 
 ## Características
 
-- Varios journals con nombres ASCII (`[A-Za-z0-9_]`).
-- Tres secciones por journal: Future Log, Monthly Log y Journal.
-- Páginas creadas por el usuario dentro de cada sección.
-- Marcadores *bullet journal*: tarea (`•`), completada (`x`), migrada (`>`), programada (`<`), evento (`o`) y nota (`-`).
-- Guardado en archivos UTF-8 `.txt` en el directorio de datos del sistema (`~/.local/share/urustjournal/journals` en Linux).
-
-## Requisitos
-
-- Rust estable (edición 2024).
+- **Organización tipo bullet journal:** journals, secciones (Future Log, Monthly Log y Journal) y páginas que creas a tu medida.
+- **Anotaciones con significado:** tareas, completadas, migradas, programadas, eventos y notas, con colores para resaltar lo importante.
+- **Escritura a mano:** fuente estilo manuscrita para una experiencia más cercana al papel.
+- **34 temas:** paletas que van de lo sobrio a lo acogedor (nordic, bosque, lluvia, chimenea, biblioteca, etc.).
+- **Multilingüe:** interfaz en español, inglés, alemán, italiano, portugués y japonés, con cambio en tiempo real.
+- **Gestión cómoda:** menú contextual en la lista de journals para crear, renombrar o eliminar; mover anotaciones y opciones rápidas sin complicaciones.
+- **Interfaz despejada:** paneles plegables y guardado automático mientras trabajas.
+- **Accesible:** navegación por teclado y compatibilidad con tecnologías de asistencia.
+- **Multiplataforma:** disponible para Linux, Windows y macOS.
 
 ## Uso
 
