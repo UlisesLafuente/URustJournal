@@ -18,10 +18,10 @@ pub enum SectionKind {
 }
 
 impl SectionKind {
-    /// Sections shown in the UI.
-    pub const ALL: [Self; 2] = [Self::FutureLog, Self::MonthlyLog];
+    /// All sections in display order.
+    pub const ALL: [Self; 3] = [Self::FutureLog, Self::MonthlyLog, Self::Journal];
 
-    /// Human label used by the UI.
+    /// Human-readable label.
     pub fn label(self) -> &'static str {
         match self {
             Self::FutureLog => "Future Log",

@@ -102,11 +102,7 @@ impl Journal {
     /// Serializes the journal back to plain text.
     pub fn to_text(&self) -> String {
         let mut output = String::new();
-        for kind in [
-            SectionKind::FutureLog,
-            SectionKind::MonthlyLog,
-            SectionKind::Journal,
-        ] {
+        for kind in SectionKind::ALL {
             output.push_str(SECTION_PREFIX);
             output.push_str(kind.as_str());
             output.push('\n');

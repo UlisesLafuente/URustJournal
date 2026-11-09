@@ -326,7 +326,7 @@ impl UrustJournalApp {
             journals: Vec::new(),
             selected: None,
             current: None,
-            active_section: SectionKind::FutureLog,
+            active_section: SectionKind::Journal,
             selected_page: None,
             new_journal_name: String::new(),
             rename_name: String::new(),
@@ -394,7 +394,7 @@ impl UrustJournalApp {
                 self.rename_name = name.as_str().to_owned();
                 self.selected = Some(name.clone());
                 self.current = Some(journal);
-                self.active_section = SectionKind::FutureLog;
+                self.active_section = SectionKind::Journal;
                 self.selected_page = None;
                 self.dirty = false;
                 self.show_info(self.lang.t("journal_created").to_string());
@@ -410,8 +410,8 @@ impl UrustJournalApp {
                 self.rename_name = name.as_str().to_owned();
                 self.selected = Some(name);
                 self.current = Some(journal);
-                self.active_section = SectionKind::FutureLog;
-                self.selected_page = self.first_page_index(SectionKind::FutureLog);
+                self.active_section = SectionKind::Journal;
+                self.selected_page = self.first_page_index(SectionKind::Journal);
                 self.new_page_title.clear();
                 self.new_bullet.clear();
                 self.dirty = false;
