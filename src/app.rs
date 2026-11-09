@@ -248,8 +248,36 @@ fn script_family() -> egui::FontFamily {
     egui::FontFamily::Name("script".into())
 }
 
+fn jp_family() -> egui::FontFamily {
+    egui::FontFamily::Name("jp".into())
+}
+
 fn script_text_style() -> egui::TextStyle {
     egui::TextStyle::Name(SCRIPT_TEXT_STYLE.into())
+}
+
+fn note_family(lang: Lang) -> egui::FontFamily {
+    if lang == Lang::Ja {
+        jp_family()
+    } else {
+        script_family()
+    }
+}
+
+fn note_font(size: f32, lang: Lang) -> egui::FontId {
+    egui::FontId::new(size, note_family(lang))
+}
+
+fn note_text(text: impl Into<String>, lang: Lang) -> egui::RichText {
+    if lang == Lang::Ja {
+        egui::RichText::new(text).font(note_font(SCRIPT_SIZE, lang))
+    } else {
+        egui::RichText::new(text).text_style(script_text_style())
+    }
+}
+
+fn note_heading(text: impl Into<String>, lang: Lang) -> egui::RichText {
+    egui::RichText::new(text).font(note_font(SCRIPT_HEADING_SIZE, lang))
 }
 
 fn script_font(size: f32) -> egui::FontId {
@@ -287,6 +315,14 @@ fn install_fonts(ctx: &egui::Context) {
         script_fonts.push("cjk_fallback".to_owned());
     }
     fonts.families.insert(script_family(), script_fonts);
+
+    if fonts.font_data.contains_key("cjk_fallback") {
+        let mut jp_fonts = vec!["cjk_fallback".to_owned()];
+        if let Some(fallbacks) = fonts.families.get(&egui::FontFamily::Proportional) {
+            jp_fonts.extend(fallbacks.iter().cloned());
+        }
+        fonts.families.insert(jp_family(), jp_fonts);
+    }
 
     if fonts.font_data.contains_key("cjk_fallback") {
         for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
@@ -844,7 +880,7 @@ impl UrustJournalApp {
                 for (index, page) in section.pages().iter().enumerate() {
                     let is_selected = self.selected_page == Some(index);
                     if ui
-                        .selectable_label(is_selected, script_text(page.title()))
+                        .selectable_label(is_selected, note_text(page.title(), self.lang))
                         .clicked()
                     {
                         select_page = Some(index);
@@ -900,7 +936,7 @@ impl UrustJournalApp {
             return;
         };
 
-        ui.heading(script_heading(title));
+        ui.heading(note_heading(title, self.lang));
 
         let mut marker_change = None;
         let mut remove_index = None;
@@ -994,7 +1030,7 @@ impl UrustJournalApp {
                                                 {
                                                     let response = ui.add(
                                                         egui::TextEdit::singleline(edit_text)
-                                                            .font(script_font(SCRIPT_SIZE))
+                                                            .font(note_font(SCRIPT_SIZE, self.lang))
                                                             .desired_width(280.0),
                                                     );
                                                     let submitted = response.lost_focus()
@@ -1015,7 +1051,7 @@ impl UrustJournalApp {
                                                 }
                                             } else {
                                                 let mut rich = egui::RichText::new(bullet.text())
-                                                    .text_style(script_text_style())
+                                                    .font(note_font(SCRIPT_SIZE, self.lang))
                                                     .color(annotation_color(
                                                         bullet.color(),
                                                         self.theme,
