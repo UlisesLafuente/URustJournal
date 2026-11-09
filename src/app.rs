@@ -390,6 +390,7 @@ impl UJournalApp {
             show_annotations: Some(self.show_annotations),
         };
         eframe::set_value(storage, PREFS_KEY, &prefs);
+        storage.flush();
     }
 
 
