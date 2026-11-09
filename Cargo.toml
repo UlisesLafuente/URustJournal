@@ -1,6 +1,6 @@
 [package]
 name = "ujournal"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2024"
 description = "UJournal: a cross-platform bullet journal written in Rust."
 license = "MIT OR Apache-2.0"
@@ -31,6 +31,10 @@ eframe = { version = "0.33", default-features = false, features = [
     "default_fonts",
     "wgpu",
     "android-game-activity",
+] }
+wgpu = { version = "27.0.1", default-features = false, features = [
+    "gles",
+    "vulkan",
 ] }
 winit = { version = "0.30", default-features = false, features = [
     "android-game-activity",

@@ -2,7 +2,7 @@ plugins {
     id 'com.android.application'
 }
 
-def ujournalVersionName = project.findProperty('UJOURNAL_VERSION_NAME') ?: '0.5.0'
+def ujournalVersionName = project.findProperty('UJOURNAL_VERSION_NAME') ?: '0.5.1'
 def ujournalVersionCode = (project.findProperty('UJOURNAL_VERSION_CODE') ?: '1').toInteger()
 def keystorePath = System.getenv('UJOURNAL_KEYSTORE')
 def ndkHome = System.getenv('ANDROID_NDK_HOME') ?: System.getenv('ANDROID_NDK_ROOT')

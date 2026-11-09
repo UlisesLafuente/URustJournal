@@ -1,6 +1,6 @@
 # Plan: UJournal para Android (APK)
 
-Estado: implementado para la versión 0.5.0. El APK compila localmente con GameActivity + Gradle + `cargo-ndk`; queda pendiente la validación en dispositivos/emuladores reales.
+Estado: implementado para la versión 0.5.1. El APK compila con GameActivity + Gradle + `cargo-ndk` y se validó en un emulador Android 15 (x86_64); incluye los backends wgpu Vulkan y GLES.
 Objetivo: publicar un APK instalable que conserve toda la funcionalidad actual de UJournal y ofrezca una interfaz cómoda en una pantalla táctil vertical de teléfono.
 
 ---
