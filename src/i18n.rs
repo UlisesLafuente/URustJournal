@@ -425,6 +425,14 @@ impl Lang {
                 Self::Pt => "Modo mover: clique para colocar, Esc para cancelar",
                 Self::Ja => "移動モード: クリックで配置、Escでキャンセル",
             },
+            "move_mode_keys" => match self {
+                Self::Es => "Modo mover: ↑↓ seleccionar, Enter colocar, Esc cancelar",
+                Self::En => "Move mode: ↑↓ select, Enter place, Esc cancel",
+                Self::De => "Verschiebemodus: ↑↓ wählen, Enter platzieren, Esc abbrechen",
+                Self::It => "Modalità spostamento: ↑↓ seleziona, Invio posiziona, Esc annulla",
+                Self::Pt => "Modo mover: ↑↓ selecionar, Enter colocar, Esc cancelar",
+                Self::Ja => "移動モード: ↑↓で選択、Enterで配置、Escでキャンセル",
+            },
             "new_journal" => match self {
                 Self::Es => "Nuevo journal:",
                 Self::En => "New journal:",
@@ -464,6 +472,14 @@ impl Lang {
                 Self::It => "Nota",
                 Self::Pt => "Nota",
                 Self::Ja => "メモ",
+            },
+            "options" => match self {
+                Self::Es => "Opciones",
+                Self::En => "Options",
+                Self::De => "Optionen",
+                Self::It => "Opzioni",
+                Self::Pt => "Opções",
+                Self::Ja => "オプション",
             },
             "place_here" => match self {
                 Self::Es => "Clic para colocar aquí",
