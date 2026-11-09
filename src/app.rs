@@ -310,6 +310,7 @@ pub struct UrustJournalApp {
     show_annotations: bool,
     editing_bullet: Option<(usize, String)>,
     moving_bullet: Option<(SectionKind, usize, usize)>,
+    renaming_journal: Option<JournalName>,
     theme: Theme,
     lang: Lang,
 }
@@ -342,6 +343,7 @@ impl UrustJournalApp {
             show_annotations: true,
             editing_bullet: None,
             moving_bullet: None,
+            renaming_journal: None,
             theme,
             lang: Lang::default(),
         };
@@ -421,6 +423,57 @@ impl UrustJournalApp {
         }
     }
 
+    fn rename_window(&mut self, ctx: &egui::Context) {
+        let Some(name) = self.renaming_journal.clone() else {
+            return;
+        };
+        let mut open = true;
+        let mut do_rename = false;
+        let mut cancel = false;
+        egui::Window::new(self.lang.t("rename"))
+            .id(egui::Id::new(("rename_window", name.as_str())))
+            .collapsible(false)
+            .resizable(false)
+            .open(&mut open)
+            .show(ctx, |ui| {
+                ui.label(name.as_str());
+                let l = ui.label(self.lang.t("rename_label"));
+                let resp = ui.add(
+                    egui::TextEdit::singleline(&mut self.rename_name)
+                        .id(egui::Id::new("rename_window_input"))
+                        .font(note_font(SCRIPT_SIZE, self.lang))
+                        .desired_width(220.0),
+                );
+                let resp = resp.labelled_by(l.id);
+                resp.request_focus();
+                let submitted = ui.input(|i| i.key_pressed(egui::Key::Enter));
+                ui.horizontal(|ui| {
+                    if ui.button(self.lang.t("rename")).clicked() || submitted {
+                        do_rename = true;
+                    }
+                    if ui.button(self.lang.t("cancel")).clicked() {
+                        cancel = true;
+                    }
+                });
+                if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                    cancel = true;
+                }
+            });
+        if !open {
+            cancel = true;
+        }
+        if do_rename {
+            self.rename_selected();
+            // rename_selected clears selected on old name? it sets selected to new_name on success.
+            if self.selected.as_ref().map(|n| n.as_str()) != Some(name.as_str()) {
+                self.renaming_journal = None;
+            }
+        }
+        if cancel {
+            self.renaming_journal = None;
+        }
+    }
+
     fn autosave(&mut self) {
         if !self.dirty {
             return;
@@ -454,7 +507,11 @@ impl UrustJournalApp {
     }
 
     fn rename_selected(&mut self) {
-        let Some(old_name) = self.selected.clone() else {
+        let Some(old_name) = self
+            .renaming_journal
+            .clone()
+            .or_else(|| self.selected.clone())
+        else {
             return;
         };
         let new_name = match JournalName::new(self.rename_name.trim()) {
@@ -684,9 +741,8 @@ impl UrustJournalApp {
         });
 
         if let Some(name) = rename_req {
-            self.selected = Some(name.clone());
             self.rename_name = name.as_str().to_owned();
-            self.rename_selected();
+            self.renaming_journal = Some(name);
         } else if let Some(name) = delete_req {
             self.selected = Some(name);
             self.delete_selected();
@@ -1356,6 +1412,7 @@ impl eframe::App for UrustJournalApp {
         });
 
         self.about_window(ctx);
+        self.rename_window(ctx);
         self.autosave();
     }
 }

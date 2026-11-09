@@ -65,6 +65,14 @@ impl Lang {
                 Self::Pt => "Anotações",
                 Self::Ja => "エントリ",
             },
+            "cancel" => match self {
+                Self::Es => "Cancelar",
+                Self::En => "Cancel",
+                Self::De => "Abbrechen",
+                Self::It => "Annulla",
+                Self::Pt => "Cancelar",
+                Self::Ja => "キャンセル",
+            },
             "change_marker" => match self {
                 Self::Es => "Cambiar marcador",
                 Self::En => "Change marker",
