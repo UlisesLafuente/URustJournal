@@ -305,12 +305,12 @@ pub struct UrustJournalApp {
     dirty: bool,
     show_about: bool,
     show_journal_list: bool,
-    show_create_bar: bool,
     show_sections_pages: bool,
     show_annotations: bool,
     editing_bullet: Option<(usize, String)>,
     moving_bullet: Option<(SectionKind, usize, usize)>,
     renaming_journal: Option<JournalName>,
+    creating_journal: bool,
     theme: Theme,
     lang: Lang,
 }
@@ -338,12 +338,12 @@ impl UrustJournalApp {
             dirty: false,
             show_about: false,
             show_journal_list: true,
-            show_create_bar: true,
             show_sections_pages: true,
             show_annotations: true,
             editing_bullet: None,
             moving_bullet: None,
             renaming_journal: None,
+            creating_journal: false,
             theme,
             lang: Lang::default(),
         };
@@ -471,6 +471,59 @@ impl UrustJournalApp {
         }
         if cancel {
             self.renaming_journal = None;
+        }
+    }
+
+    fn create_journal_window(&mut self, ctx: &egui::Context) {
+        if !self.creating_journal {
+            return;
+        }
+        let mut open = true;
+        let mut do_create = false;
+        let mut cancel = false;
+        egui::Window::new(self.lang.t("new_journal"))
+            .id(egui::Id::new("create_journal_window"))
+            .collapsible(false)
+            .resizable(false)
+            .open(&mut open)
+            .show(ctx, |ui| {
+                let l = ui.label(self.lang.t("new_journal"));
+                let resp = ui.add(
+                    egui::TextEdit::singleline(&mut self.new_journal_name)
+                        .id(egui::Id::new("new_journal_name_dlg"))
+                        .font(note_font(SCRIPT_SIZE, self.lang))
+                        .hint_text(hint(self.lang.t("hint_journal"), self.theme))
+                        .desired_width(220.0),
+                );
+                let resp = resp.labelled_by(l.id);
+                resp.request_focus();
+                let submitted = ui.input(|i| i.key_pressed(egui::Key::Enter));
+                ui.horizontal(|ui| {
+                    if ui.button(self.lang.t("create")).clicked() || submitted {
+                        do_create = true;
+                    }
+                    if ui.button(self.lang.t("cancel")).clicked() {
+                        cancel = true;
+                    }
+                });
+                if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                    cancel = true;
+                }
+            });
+        if !open {
+            cancel = true;
+        }
+        if do_create {
+            let before = self.current.as_ref().map(|j| j.name().clone());
+            self.create_journal();
+            if self.current.as_ref().map(|j| j.name().clone()) != before
+                || self.new_journal_name.is_empty()
+            {
+                self.creating_journal = false;
+            }
+        }
+        if cancel {
+            self.creating_journal = false;
         }
     }
 
@@ -617,34 +670,8 @@ impl UrustJournalApp {
     }
 
     fn top_bar(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        let arrow_color = self.theme.palette().accent;
         ui.horizontal(|ui| {
-            collapse_arrow(
-                ui,
-                &mut self.show_create_bar,
-                "▲",
-                "▼",
-                arrow_color,
-                self.lang.t("new_journal"),
-            );
             ui.heading("UrustJournal");
-            if self.show_create_bar {
-                ui.separator();
-                let l = ui.label(self.lang.t("new_journal"));
-                let response = ui.add(
-                    egui::TextEdit::singleline(&mut self.new_journal_name)
-                        .id(egui::Id::new("new_journal_name"))
-                        .font(note_font(SCRIPT_SIZE, self.lang))
-                        .hint_text(hint(self.lang.t("hint_journal"), self.theme))
-                        .desired_width(180.0),
-                );
-                let response = response.labelled_by(l.id);
-                let submitted =
-                    response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter));
-                if ui.button(self.lang.t("create")).clicked() || submitted {
-                    self.create_journal();
-                }
-            }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.menu_button("⋯", |ui| {
                     ui.menu_button(self.lang.t("theme_label"), |ui| {
@@ -709,38 +736,57 @@ impl UrustJournalApp {
     }
 
     fn journal_list(&mut self, ui: &mut egui::Ui) {
-        if self.journals.is_empty() {
-            ui.weak(self.lang.t("no_journals"));
-            return;
-        }
-
         let mut to_open = None;
-        let mut action: Option<(JournalName, bool)> = None;
         let mut rename_req: Option<JournalName> = None;
         let mut delete_req: Option<JournalName> = None;
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            for name in &self.journals {
-                let is_selected = self.selected.as_ref() == Some(name);
-                let response =
-                    ui.selectable_label(is_selected, note_text(name.as_str(), self.lang));
-                if response.clicked() {
-                    to_open = Some(name.clone());
+        let mut create_req = false;
+        let _scroll = egui::ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                if self.journals.is_empty() {
+                    ui.weak(self.lang.t("no_journals"));
                 }
-                egui::Popup::context_menu(&response).show(|ui| {
-                    if ui.button(self.lang.t("rename")).clicked() {
-                        rename_req = Some(name.clone());
-                        ui.close();
+                for name in &self.journals {
+                    let is_selected = self.selected.as_ref() == Some(name);
+                    let response =
+                        ui.selectable_label(is_selected, note_text(name.as_str(), self.lang));
+                    if response.clicked() {
+                        to_open = Some(name.clone());
                     }
-                    if ui.button(self.lang.t("delete")).clicked() {
-                        delete_req = Some(name.clone());
-                        ui.close();
-                    }
-                });
-                let _ = (&mut action,);
-            }
-        });
+                    egui::Popup::context_menu(&response).show(|ui| {
+                        if ui.button(self.lang.t("new_journal")).clicked() {
+                            create_req = true;
+                            ui.close();
+                        }
+                        ui.separator();
+                        if ui.button(self.lang.t("rename")).clicked() {
+                            rename_req = Some(name.clone());
+                            ui.close();
+                        }
+                        if ui.button(self.lang.t("delete")).clicked() {
+                            delete_req = Some(name.clone());
+                            ui.close();
+                        }
+                    });
+                }
+                // fill remaining area for background context menu
+                let remaining = ui.available_size();
+                if remaining.y > 0.0 {
+                    let (rect, bg_resp) = ui.allocate_exact_size(remaining, egui::Sense::click());
+                    let _ = rect;
+                    egui::Popup::context_menu(&bg_resp).show(|ui| {
+                        if ui.button(self.lang.t("new_journal")).clicked() {
+                            create_req = true;
+                            ui.close();
+                        }
+                    });
+                }
+            });
 
-        if let Some(name) = rename_req {
+        if create_req {
+            self.new_journal_name.clear();
+            self.creating_journal = true;
+        } else if let Some(name) = rename_req {
             self.rename_name = name.as_str().to_owned();
             self.renaming_journal = Some(name);
         } else if let Some(name) = delete_req {
@@ -1413,6 +1459,7 @@ impl eframe::App for UrustJournalApp {
 
         self.about_window(ctx);
         self.rename_window(ctx);
+        self.create_journal_window(ctx);
         self.autosave();
     }
 }
