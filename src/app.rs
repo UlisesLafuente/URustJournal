@@ -592,10 +592,6 @@ impl UrustJournalApp {
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.menu_button("⋯", |ui| {
-                    if ui.button(self.lang.t("new_journal")).clicked() {
-                        self.show_create_bar = true;
-                        ui.close();
-                    }
                     ui.menu_button(self.lang.t("theme_label"), |ui| {
                         let mut changed = false;
                         egui::ScrollArea::vertical()
