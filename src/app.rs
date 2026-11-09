@@ -273,13 +273,53 @@ fn install_fonts(ctx: &egui::Context) {
         ))),
     );
 
+    if let Some(cjk_data) = load_cjk_font() {
+        fonts
+            .font_data
+            .insert("cjk_fallback".to_owned(), std::sync::Arc::new(cjk_data));
+    }
+
     let mut script_fonts = vec![CAVEAT.to_owned()];
     if let Some(fallbacks) = fonts.families.get(&egui::FontFamily::Proportional) {
         script_fonts.extend(fallbacks.iter().cloned());
     }
+    if fonts.font_data.contains_key("cjk_fallback") {
+        script_fonts.push("cjk_fallback".to_owned());
+    }
     fonts.families.insert(script_family(), script_fonts);
 
+    if fonts.font_data.contains_key("cjk_fallback") {
+        for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
+            fonts
+                .families
+                .entry(family)
+                .or_default()
+                .push("cjk_fallback".to_owned());
+        }
+    }
+
     ctx.set_fonts(fonts);
+}
+
+fn load_cjk_font() -> Option<egui::FontData> {
+    let candidates = [
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJKjp-Regular.otf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJKjp-Regular.otf",
+        "/System/Library/Fonts/Hiragino Sans GB.ttc",
+        "/System/Library/Fonts/PingFang.ttc",
+        "/Library/Fonts/Arial Unicode.ttf",
+        "C:\\Windows\\Fonts\\msgothic.ttc",
+        "C:\\Windows\\Fonts\\meiryo.ttc",
+        "C:\\Windows\\Fonts\\YuGothM.ttc",
+    ];
+    for path in candidates {
+        if let Ok(bytes) = std::fs::read(path) {
+            return Some(egui::FontData::from_owned(bytes));
+        }
+    }
+    None
 }
 
 fn configure_style(ctx: &egui::Context, theme: Theme) {
@@ -372,8 +412,6 @@ enum NewBulletKind {
     Note,
     Event,
 }
-
-
 
 struct Status {
     message: String,
