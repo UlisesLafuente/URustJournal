@@ -1,6 +1,6 @@
 [package]
 name = "urust_journal"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2024"
 description = "A cross-platform bullet journal written in Rust."
 license = "MIT OR Apache-2.0"

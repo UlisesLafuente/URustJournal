@@ -379,6 +379,7 @@ pub struct UrustJournalApp {
     show_annotations: bool,
     show_journal_actions: bool,
     editing_bullet: Option<(usize, String)>,
+    moving_bullet: Option<(SectionKind, usize, usize)>,
     theme: Theme,
 }
 
@@ -410,6 +411,7 @@ impl UrustJournalApp {
             show_annotations: true,
             show_journal_actions: true,
             editing_bullet: None,
+            moving_bullet: None,
             theme,
         };
         app.refresh();
@@ -859,11 +861,19 @@ impl UrustJournalApp {
                             let bullet_count = page.bullets().len();
                             let mut row_rects: Vec<(usize, egui::Rect)> =
                                 Vec::with_capacity(bullet_count);
+                            let moving_this_page = self
+                                .moving_bullet
+                                .filter(|(k, p, _)| *k == kind && *p == page_index)
+                                .map(|(_, _, from)| from);
+                            let mut start_move = None;
+                            if let Some(_from) = moving_this_page {
+                                ui.colored_label(
+                                    self.theme.palette().accent,
+                                    "Modo mover: clic para colocar, Esc para cancelar",
+                                );
+                            }
                             for (index, bullet) in page.bullets().iter().enumerate() {
                                 let is_editing = editing_index == Some(index);
-                                let drag_id =
-                                    egui::Id::new(("bullet_drag", kind as u8, page_index, index));
-                                let dragging = ui.ctx().is_being_dragged(drag_id);
                                 let row = ui.horizontal(|ui| {
                                     match bullet {
                                         Bullet::Raw(text) => {
@@ -939,29 +949,25 @@ impl UrustJournalApp {
                                                 {
                                                     rich = rich.strikethrough().weak();
                                                 }
-                                                let drag_resp = ui
-                                                    .interact(
-                                                        ui.max_rect(),
-                                                        drag_id,
-                                                        egui::Sense::click_and_drag(),
-                                                    )
-                                                    .on_hover_cursor(egui::CursorIcon::Grab);
-                                                if drag_resp.drag_started() {
-                                                    egui::DragAndDrop::set_payload(ui.ctx(), index);
-                                                }
                                                 let response = ui
                                                     .add(
                                                         egui::Label::new(rich)
                                                             .sense(egui::Sense::click()),
                                                     )
-                                                    .on_hover_text(
-                                                        "Clic derecho: opciones · Arrastrar: mover",
-                                                    );
-                                                let _ = drag_resp;
+                                                    .on_hover_text(if moving_this_page.is_some() {
+                                                        "Clic para colocar aquí"
+                                                    } else {
+                                                        "Clic derecho para opciones"
+                                                    });
                                                 egui::Popup::context_menu(&response).show(|ui| {
                                                     if ui.button("Editar texto").clicked() {
                                                         edit_start =
                                                             Some((index, bullet.text().to_owned()));
+                                                        ui.close();
+                                                    }
+                                                    if ui.button("Mover").clicked() {
+                                                        start_move =
+                                                            Some((kind, page_index, index));
                                                         ui.close();
                                                     }
                                                     ui.separator();
@@ -1003,11 +1009,13 @@ impl UrustJournalApp {
                                 });
                                 let row_rect = row.response.rect;
                                 row_rects.push((index, row_rect));
-                                if dragging {
-                                    ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+                                if moving_this_page == Some(index) {
                                     let accent = self.theme.palette().accent;
-                                    let ghost = accent.gamma_multiply(0.12);
-                                    ui.painter().rect_filled(row_rect, 0.0, ghost);
+                                    ui.painter().rect_filled(
+                                        row_rect,
+                                        0.0,
+                                        accent.gamma_multiply(0.12),
+                                    );
                                 }
 
                                 let line_y = row_rect.bottom() + 3.0;
@@ -1022,9 +1030,11 @@ impl UrustJournalApp {
                                 );
                                 ui.add_space(3.0);
                             }
-                            if let Some(payload) = egui::DragAndDrop::payload::<usize>(ui.ctx()) {
-                                let from = *payload;
-                                if let Some(pointer) = ui.ctx().pointer_interact_pos() {
+                            if let Some(from) = moving_this_page {
+                                if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                                    self.moving_bullet = None;
+                                } else if let Some(pointer) = ui.input(|i| i.pointer.interact_pos())
+                                {
                                     let mut target = bullet_count;
                                     for (i, (_, rect)) in row_rects.iter().enumerate() {
                                         if pointer.y < rect.center().y {
@@ -1048,7 +1058,7 @@ impl UrustJournalApp {
                                             egui::Stroke::new(2.0, accent),
                                         );
                                     }
-                                    if ui.input(|i| i.pointer.any_released()) {
+                                    if ui.input(|i| i.pointer.primary_released()) {
                                         let mut to = target.min(bullet_count);
                                         if to > from {
                                             to = to.saturating_sub(1);
@@ -1064,9 +1074,13 @@ impl UrustJournalApp {
                                             self.dirty = true;
                                             self.editing_bullet = None;
                                         }
-                                        egui::DragAndDrop::clear_payload(ui.ctx());
+                                        self.moving_bullet = None;
                                     }
                                 }
+                            }
+                            if let Some(m) = start_move {
+                                self.moving_bullet = Some(m);
+                                self.editing_bullet = None;
                             }
                         });
                 });
