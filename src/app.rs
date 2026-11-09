@@ -1032,21 +1032,22 @@ impl UrustJournalApp {
                                         }
                                         _ => {
                                             if let Some(current_marker) = bullet.marker() {
-                                                let marker_text = format!(
-                                                    "{} {}",
-                                                    current_marker.symbol(),
-                                                    marker_label(current_marker, self.lang)
-                                                );
                                                 let response = ui
                                                     .add(
                                                         egui::Label::new(
-                                                            egui::RichText::new(marker_text)
-                                                                .size(MARKER_SIZE)
-                                                                .color(self.theme.palette().ink),
+                                                            egui::RichText::new(
+                                                                current_marker.symbol(),
+                                                            )
+                                                            .size(MARKER_SIZE)
+                                                            .color(self.theme.palette().ink),
                                                         )
                                                         .sense(egui::Sense::click()),
                                                     )
-                                                    .on_hover_text(self.lang.t("change_marker"));
+                                                    .on_hover_text(format!(
+                                                        "{}: {}",
+                                                        self.lang.t("change_marker"),
+                                                        marker_label(current_marker, self.lang)
+                                                    ));
                                                 response.widget_info(|| {
                                                     egui::WidgetInfo::labeled(
                                                         egui::WidgetType::Button,
