@@ -109,9 +109,9 @@ fn structured_text_round_trips() {
         .push(Bullet::task("review goals"));
 
     let daily = journal
-        .add_page(SectionKind::Journal, "2026-11-08")
+        .add_page(SectionKind::MonthlyLog, "2026-11-08")
         .unwrap();
-    let page = journal.page_mut(SectionKind::Journal, daily).unwrap();
+    let page = journal.page_mut(SectionKind::MonthlyLog, daily).unwrap();
     page.push(Bullet::task("buy bread"));
     page.push(Bullet::note("call mom"));
 
@@ -124,8 +124,8 @@ fn structured_text_round_trips() {
 #[test]
 fn marker_like_content_is_escaped() {
     let mut journal = Journal::new(name("escape"));
-    let index = journal.add_page(SectionKind::Journal, "Day").unwrap();
-    let page = journal.page_mut(SectionKind::Journal, index).unwrap();
+    let index = journal.add_page(SectionKind::FutureLog, "Day").unwrap();
+    let page = journal.page_mut(SectionKind::FutureLog, index).unwrap();
     page.push(Bullet::Raw("@@section future_log".to_owned()));
     page.push(Bullet::Raw("@@page fake".to_owned()));
     page.push(Bullet::Raw("\\@@page escaped".to_owned()));

@@ -308,7 +308,6 @@ pub struct UrustJournalApp {
     show_create_bar: bool,
     show_sections_pages: bool,
     show_annotations: bool,
-    show_journal_actions: bool,
     editing_bullet: Option<(usize, String)>,
     moving_bullet: Option<(SectionKind, usize, usize)>,
     theme: Theme,
@@ -327,7 +326,7 @@ impl UrustJournalApp {
             journals: Vec::new(),
             selected: None,
             current: None,
-            active_section: SectionKind::Journal,
+            active_section: SectionKind::FutureLog,
             selected_page: None,
             new_journal_name: String::new(),
             rename_name: String::new(),
@@ -341,7 +340,6 @@ impl UrustJournalApp {
             show_create_bar: true,
             show_sections_pages: true,
             show_annotations: true,
-            show_journal_actions: true,
             editing_bullet: None,
             moving_bullet: None,
             theme,
@@ -396,7 +394,7 @@ impl UrustJournalApp {
                 self.rename_name = name.as_str().to_owned();
                 self.selected = Some(name.clone());
                 self.current = Some(journal);
-                self.active_section = SectionKind::Journal;
+                self.active_section = SectionKind::FutureLog;
                 self.selected_page = None;
                 self.dirty = false;
                 self.show_info(self.lang.t("journal_created").to_string());
@@ -412,8 +410,8 @@ impl UrustJournalApp {
                 self.rename_name = name.as_str().to_owned();
                 self.selected = Some(name);
                 self.current = Some(journal);
-                self.active_section = SectionKind::Journal;
-                self.selected_page = self.first_page_index(SectionKind::Journal);
+                self.active_section = SectionKind::FutureLog;
+                self.selected_page = self.first_page_index(SectionKind::FutureLog);
                 self.new_page_title.clear();
                 self.new_bullet.clear();
                 self.dirty = false;
@@ -660,58 +658,40 @@ impl UrustJournalApp {
         }
 
         let mut to_open = None;
+        let mut action: Option<(JournalName, bool)> = None;
+        let mut rename_req: Option<JournalName> = None;
+        let mut delete_req: Option<JournalName> = None;
         egui::ScrollArea::vertical().show(ui, |ui| {
             for name in &self.journals {
                 let is_selected = self.selected.as_ref() == Some(name);
-                if ui
-                    .selectable_label(is_selected, note_text(name.as_str(), self.lang))
-                    .clicked()
-                {
+                let response =
+                    ui.selectable_label(is_selected, note_text(name.as_str(), self.lang));
+                if response.clicked() {
                     to_open = Some(name.clone());
                 }
+                egui::Popup::context_menu(&response).show(|ui| {
+                    if ui.button(self.lang.t("rename")).clicked() {
+                        rename_req = Some(name.clone());
+                        ui.close();
+                    }
+                    if ui.button(self.lang.t("delete")).clicked() {
+                        delete_req = Some(name.clone());
+                        ui.close();
+                    }
+                });
+                let _ = (&mut action,);
             }
         });
 
-        if let Some(name) = to_open {
+        if let Some(name) = rename_req {
+            self.selected = Some(name.clone());
+            self.rename_name = name.as_str().to_owned();
+            self.rename_selected();
+        } else if let Some(name) = delete_req {
+            self.selected = Some(name);
+            self.delete_selected();
+        } else if let Some(name) = to_open {
             self.open_journal(name);
-        }
-    }
-
-    fn journal_header(&mut self, ui: &mut egui::Ui, name: &JournalName) {
-        let arrow_color = self.theme.palette().accent;
-        ui.horizontal(|ui| {
-            collapse_arrow(
-                ui,
-                &mut self.show_journal_actions,
-                "▲",
-                "▼",
-                arrow_color,
-                self.lang.t("rename_label"),
-            );
-            ui.heading(note_heading(name.as_str(), self.lang));
-            if self.dirty {
-                ui.colored_label(PENDING_INK, self.lang.t("unsaved"));
-            }
-        });
-
-        if self.show_journal_actions {
-            ui.horizontal(|ui| {
-                let l = ui.label(self.lang.t("rename_label"));
-                let r = ui.add(
-                    egui::TextEdit::singleline(&mut self.rename_name)
-                        .id(egui::Id::new("rename_journal"))
-                        .font(note_font(SCRIPT_SIZE, self.lang))
-                        .desired_width(160.0)
-                        .hint_text(hint(self.lang.t("hint_name"), self.theme)),
-                );
-                let _r = r.labelled_by(l.id);
-                if ui.button(self.lang.t("rename")).clicked() {
-                    self.rename_selected();
-                }
-                if ui.button(self.lang.t("delete")).clicked() {
-                    self.delete_selected();
-                }
-            });
         }
     }
 
@@ -1239,13 +1219,12 @@ impl UrustJournalApp {
     }
 
     fn editor(&mut self, ui: &mut egui::Ui) {
-        let Some(name) = self.current.as_ref().map(|journal| journal.name().clone()) else {
+        if self.current.is_none() {
             return;
-        };
-
-        self.journal_header(ui, &name);
-
-        ui.separator();
+        }
+        if self.dirty {
+            ui.colored_label(PENDING_INK, self.lang.t("unsaved"));
+        }
         ui.horizontal(|ui| {
             collapse_arrow(
                 ui,
