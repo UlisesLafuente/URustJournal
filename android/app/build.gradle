@@ -1,0 +1,69 @@
+plugins {
+    id 'com.android.application'
+}
+
+def ujournalVersionName = project.findProperty('UJOURNAL_VERSION_NAME') ?: '0.5.0'
+def ujournalVersionCode = (project.findProperty('UJOURNAL_VERSION_CODE') ?: '1').toInteger()
+def keystorePath = System.getenv('UJOURNAL_KEYSTORE')
+def ndkHome = System.getenv('ANDROID_NDK_HOME') ?: System.getenv('ANDROID_NDK_ROOT')
+
+android {
+    compileSdk = 35
+    ndkVersion = '27.2.12479018'
+    namespace 'org.ujournal'
+
+    if (ndkHome) {
+        ndkPath = ndkHome
+    }
+
+    defaultConfig {
+        applicationId = 'org.ujournal.UJournal'
+        minSdk = 26
+        targetSdk = 35
+        versionCode = ujournalVersionCode
+        versionName = ujournalVersionName
+    }
+
+    signingConfigs {
+        if (keystorePath) {
+            release {
+                storeFile file(keystorePath)
+                storePassword System.getenv('UJOURNAL_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('UJOURNAL_KEY_ALIAS')
+                keyPassword System.getenv('UJOURNAL_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled = false
+            signingConfig = keystorePath ? signingConfigs.release : signingConfigs.debug
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            minifyEnabled = false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
+}
+
+configurations.configureEach {
+    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
+    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.games:games-activity:4.4.0'
+}

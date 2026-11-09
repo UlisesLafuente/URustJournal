@@ -8,6 +8,8 @@ use crate::journal::{
 };
 use crate::theme::Theme;
 
+mod mobile;
+
 const CAVEAT: &str = "caveat";
 const SCRIPT_TEXT_STYLE: &str = "Script";
 const SCRIPT_SIZE: f32 = 16.0;
@@ -159,24 +161,34 @@ fn install_fonts(ctx: &egui::Context) {
 }
 
 fn load_cjk_font() -> Option<egui::FontData> {
-    let candidates = [
-        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/truetype/noto/NotoSansCJKjp-Regular.otf",
-        "/usr/share/fonts/opentype/noto/NotoSansCJKjp-Regular.otf",
-        "/System/Library/Fonts/Hiragino Sans GB.ttc",
-        "/System/Library/Fonts/PingFang.ttc",
-        "/Library/Fonts/Arial Unicode.ttf",
-        "C:\\Windows\\Fonts\\msgothic.ttc",
-        "C:\\Windows\\Fonts\\meiryo.ttc",
-        "C:\\Windows\\Fonts\\YuGothM.ttc",
-    ];
-    for path in candidates {
-        if let Ok(bytes) = std::fs::read(path) {
-            return Some(egui::FontData::from_owned(bytes));
-        }
+    #[cfg(target_os = "android")]
+    {
+        return Some(egui::FontData::from_static(include_bytes!(
+            "../assets/fonts/NotoSansJP[wght].ttf"
+        )));
     }
-    None
+
+    #[cfg(not(target_os = "android"))]
+    {
+        let candidates = [
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/noto/NotoSansCJKjp-Regular.otf",
+            "/usr/share/fonts/opentype/noto/NotoSansCJKjp-Regular.otf",
+            "/System/Library/Fonts/Hiragino Sans GB.ttc",
+            "/System/Library/Fonts/PingFang.ttc",
+            "/Library/Fonts/Arial Unicode.ttf",
+            "C:\\Windows\\Fonts\\msgothic.ttc",
+            "C:\\Windows\\Fonts\\meiryo.ttc",
+            "C:\\Windows\\Fonts\\YuGothM.ttc",
+        ];
+        for path in candidates {
+            if let Ok(bytes) = std::fs::read(path) {
+                return Some(egui::FontData::from_owned(bytes));
+            }
+        }
+        None
+    }
 }
 
 fn configure_style(ctx: &egui::Context, theme: Theme) {
@@ -311,6 +323,7 @@ pub struct UJournalApp {
     moving_bullet: Option<(SectionKind, usize, usize)>,
     renaming_journal: Option<JournalName>,
     creating_journal: bool,
+    mobile: mobile::MobileState,
     theme: Theme,
     lang: Lang,
 }
@@ -344,6 +357,7 @@ impl UJournalApp {
             moving_bullet: None,
             renaming_journal: None,
             creating_journal: false,
+            mobile: mobile::MobileState::default(),
             theme,
             lang: Lang::default(),
         };
@@ -385,10 +399,13 @@ impl UJournalApp {
         self.selected_page = self.first_page_index(kind);
     }
 
-    fn create_journal(&mut self) {
+    fn create_journal(&mut self) -> bool {
         let name = match JournalName::new(self.new_journal_name.trim()) {
             Ok(name) => name,
-            Err(error) => return self.show_error(error),
+            Err(error) => {
+                self.show_error(error);
+                return false;
+            }
         };
         match self.storage.create(name.clone()) {
             Ok(journal) => {
@@ -401,8 +418,12 @@ impl UJournalApp {
                 self.dirty = false;
                 self.show_info(self.lang.t("journal_created").to_string());
                 self.refresh();
+                true
             }
-            Err(error) => self.show_error(error),
+            Err(error) => {
+                self.show_error(error);
+                false
+            }
         }
     }
 
@@ -462,12 +483,8 @@ impl UJournalApp {
         if !open {
             cancel = true;
         }
-        if do_rename {
-            self.rename_selected();
-            // rename_selected clears selected on old name? it sets selected to new_name on success.
-            if self.selected.as_ref().map(|n| n.as_str()) != Some(name.as_str()) {
-                self.renaming_journal = None;
-            }
+        if do_rename && self.rename_selected() {
+            self.renaming_journal = None;
         }
         if cancel {
             self.renaming_journal = None;
@@ -513,14 +530,8 @@ impl UJournalApp {
         if !open {
             cancel = true;
         }
-        if do_create {
-            let before = self.current.as_ref().map(|j| j.name().clone());
-            self.create_journal();
-            if self.current.as_ref().map(|j| j.name().clone()) != before
-                || self.new_journal_name.is_empty()
-            {
-                self.creating_journal = false;
-            }
+        if do_create && self.create_journal() {
+            self.creating_journal = false;
         }
         if cancel {
             self.creating_journal = false;
@@ -559,21 +570,24 @@ impl UJournalApp {
         }
     }
 
-    fn rename_selected(&mut self) {
+    fn rename_selected(&mut self) -> bool {
         let Some(old_name) = self
             .renaming_journal
             .clone()
             .or_else(|| self.selected.clone())
         else {
-            return;
+            return false;
         };
         let new_name = match JournalName::new(self.rename_name.trim()) {
             Ok(name) => name,
-            Err(error) => return self.show_error(error),
+            Err(error) => {
+                self.show_error(error);
+                return false;
+            }
         };
         if new_name == old_name {
             self.show_info("El nombre no ha cambiado.");
-            return;
+            return true;
         }
 
         if self.dirty {
@@ -582,7 +596,8 @@ impl UJournalApp {
                 None => Ok(()),
             };
             if let Err(error) = result {
-                return self.show_error(error);
+                self.show_error(error);
+                return false;
             }
             self.dirty = false;
         }
@@ -596,8 +611,12 @@ impl UJournalApp {
                 self.rename_name = new_name.as_str().to_owned();
                 self.show_info(format!("Journal renombrado a '{new_name}'."));
                 self.refresh();
+                true
             }
-            Err(error) => self.show_error(error),
+            Err(error) => {
+                self.show_error(error);
+                false
+            }
         }
     }
 
@@ -1405,16 +1424,48 @@ impl UJournalApp {
 
 impl eframe::App for UJournalApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::TopBottomPanel::top("top_bar").show(ctx, |ui| self.top_bar(ui, ctx));
+        if !ctx.input(|i| i.viewport().focused.unwrap_or(true)) {
+            self.autosave();
+        }
 
-        if self.show_journal_list {
-            egui::SidePanel::left("journal_list")
-                .resizable(true)
-                .default_width(220.0)
-                .show(ctx, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.heading(note_heading(self.lang.t("journals"), self.lang));
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        let mobile =
+            cfg!(target_os = "android") || ctx.content_rect().width() < mobile::PHONE_BREAKPOINT;
+        if mobile {
+            self.mobile_update(ctx);
+        } else {
+            egui::TopBottomPanel::top("top_bar").show(ctx, |ui| self.top_bar(ui, ctx));
+
+            if self.show_journal_list {
+                egui::SidePanel::left("journal_list")
+                    .resizable(true)
+                    .default_width(220.0)
+                    .show(ctx, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.heading(note_heading(self.lang.t("journals"), self.lang));
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    collapse_arrow(
+                                        ui,
+                                        &mut self.show_journal_list,
+                                        "◀",
+                                        "▶",
+                                        self.theme.palette().accent,
+                                        self.lang.t("journals"),
+                                    );
+                                },
+                            );
+                        });
+                        ui.separator();
+                        self.journal_list(ui);
+                    });
+            } else {
+                egui::SidePanel::left("journal_list_collapsed")
+                    .resizable(false)
+                    .exact_width(28.0)
+                    .show(ctx, |ui| {
+                        ui.vertical_centered(|ui| {
+                            ui.add_space(6.0);
                             collapse_arrow(
                                 ui,
                                 &mut self.show_journal_list,
@@ -1425,41 +1476,33 @@ impl eframe::App for UJournalApp {
                             );
                         });
                     });
-                    ui.separator();
-                    self.journal_list(ui);
-                });
-        } else {
-            egui::SidePanel::left("journal_list_collapsed")
-                .resizable(false)
-                .exact_width(28.0)
-                .show(ctx, |ui| {
-                    ui.vertical_centered(|ui| {
-                        ui.add_space(6.0);
-                        collapse_arrow(
-                            ui,
-                            &mut self.show_journal_list,
-                            "◀",
-                            "▶",
-                            self.theme.palette().accent,
-                            self.lang.t("journals"),
-                        );
+            }
+
+            egui::CentralPanel::default().show(ctx, |ui| {
+                if self.current.is_some() {
+                    self.editor(ui);
+                } else {
+                    ui.centered_and_justified(|ui| {
+                        ui.weak(self.lang.t("select_or_create"));
                     });
-                });
+                }
+            });
+
+            self.about_window(ctx);
+            self.rename_window(ctx);
+            self.create_journal_window(ctx);
         }
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            if self.current.is_some() {
-                self.editor(ui);
-            } else {
-                ui.centered_and_justified(|ui| {
-                    ui.weak(self.lang.t("select_or_create"));
-                });
-            }
-        });
+        self.autosave();
+    }
 
-        self.about_window(ctx);
-        self.rename_window(ctx);
-        self.create_journal_window(ctx);
+    #[cfg(not(target_os = "android"))]
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        self.autosave();
+    }
+
+    #[cfg(target_os = "android")]
+    fn on_exit(&mut self) {
         self.autosave();
     }
 }

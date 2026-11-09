@@ -1,6 +1,6 @@
 [package]
 name = "ujournal"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2024"
 description = "UJournal: a cross-platform bullet journal written in Rust."
 license = "MIT OR Apache-2.0"
@@ -8,9 +8,34 @@ repository = "https://github.com/UlisesLafuente/URustJournal"
 keywords = ["journal", "notes", "bullet-journal", "egui", "productivity"]
 categories = ["gui"]
 
-[dependencies]
+[lib]
+name = "ujournal"
+crate-type = ["cdylib", "rlib"]
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
 directories = "6"
-eframe = "0.33"
+eframe = { version = "0.33", default-features = false, features = [
+    "accesskit",
+    "default_fonts",
+    "glow",
+    "wayland",
+    "web_screen_reader",
+    "x11",
+] }
+winit = "0.30"
+
+[target.'cfg(target_os = "android")'.dependencies]
+directories = "6"
+eframe = { version = "0.33", default-features = false, features = [
+    "accesskit",
+    "default_fonts",
+    "wgpu",
+    "android-game-activity",
+] }
+winit = { version = "0.30", default-features = false, features = [
+    "android-game-activity",
+    "rwh_06",
+] }
 
 [dev-dependencies]
 tempfile = "3"

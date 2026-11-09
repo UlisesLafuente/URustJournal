@@ -2,8 +2,8 @@ AVISOS DE TERCEROS / THIRD-PARTY NOTICES
 
 UrustJournal incluye las siguientes dependencias de Rust. Cada una se distribuye
 bajo la licencia indicada por sus autores. Las URLs apuntan al repositorio o a la
-página del proyecto. Los textos completos de la licencia de la aplicación y de la
-fuente Caveat se muestran en las otras secciones de este diálogo.
+página del proyecto. Los textos completos de la licencia de la aplicación y de las
+fuentes Caveat y Noto Sans JP se muestran en las otras secciones de este diálogo.
 
 Total de paquetes: 398
 
