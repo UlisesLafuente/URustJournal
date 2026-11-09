@@ -2,6 +2,8 @@
 
 pub mod app;
 pub mod error;
+pub mod i18n;
 pub mod journal;
 
 pub use error::{JournalError, Result};
+pub use i18n::Lang;
